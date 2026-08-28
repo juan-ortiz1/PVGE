@@ -28,7 +28,6 @@ public class EstudianteService {
         .nickname(request.getNickname())
         .nombre(request.getNombre())
         .apellido(request.getApellido())
-        .correo(request.getCorreo())
         .fechaRegistro(LocalDateTime.now())
         .pais(request.getPais())
         .usuario(usuario)
@@ -43,7 +42,7 @@ public class EstudianteService {
         .nickname(estudiante.getNickname())
         .nombre(estudiante.getNombre())
         .apellido(estudiante.getApellido())
-        .correo(estudiante.getCorreo())
+        .correo(estudiante.getUsuario().getCorreo())
         .fechaRegistro(estudiante.getFechaRegistro())
         .pais(estudiante.getPais())
         .build();

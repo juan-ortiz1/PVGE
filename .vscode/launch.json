@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-PvgeApplication<pvge>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.example.pvge.PvgeApplication",
+            "projectName": "pvge",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
