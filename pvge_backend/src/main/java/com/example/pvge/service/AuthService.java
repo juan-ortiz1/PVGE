@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import com.example.pvge.dto.auth.AuthResponse;
@@ -15,7 +14,6 @@ import com.example.pvge.model.RefreshTokenRepository;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.UsuarioRepository;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service

@@ -22,34 +22,37 @@ public class EstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final UsuarioService usuarioService;
     private final UsuarioRepository usuarioRepository;
-    
+
     @Transactional
-    public EstudianteResponse crearEstudiante(EstudianteRequest request){
+    public EstudianteResponse crearEstudiante(EstudianteRequest request) {
         if (usuarioRepository.findByCorreo(request.getCorreo()).isPresent()) {
-            throw new RuntimeException("El usuario ya existe");
+            throw new RuntimeException("Ya existe un usuario con este correo electrónico");
+        }
+        if (estudianteRepository.findByNickname(request.getNickname()).isPresent()) {
+            throw new RuntimeException("Ya existe un usuario con este nickname");
         }
         Usuario usuario = usuarioService.crearUsuario(request.getCorreo(), request.getPassword(), Rol.ESTUDIANTE);
         Estudiante estudiante = Estudiante.builder()
-        .nickname(request.getNickname())
-        .nombre(request.getNombre())
-        .apellido(request.getApellido())
-        .fechaRegistro(LocalDateTime.now())
-        .pais(request.getPais())
-        .usuario(usuario)
-        .build();
+                .nickname(request.getNickname())
+                .nombre(request.getNombre())
+                .apellido(request.getApellido())
+                .fechaRegistro(LocalDateTime.now())
+                .pais(request.getPais())
+                .usuario(usuario)
+                .build();
         estudianteRepository.save(estudiante);
         return buildEstudianteResponse(estudiante);
     }
 
-    private EstudianteResponse buildEstudianteResponse(Estudiante estudiante){
+    private EstudianteResponse buildEstudianteResponse(Estudiante estudiante) {
         return EstudianteResponse.builder()
-        .id(estudiante.getId())
-        .nickname(estudiante.getNickname())
-        .nombre(estudiante.getNombre())
-        .apellido(estudiante.getApellido())
-        .correo(estudiante.getUsuario().getCorreo())
-        .fechaRegistro(estudiante.getFechaRegistro())
-        .pais(estudiante.getPais())
-        .build();
+                .id(estudiante.getId())
+                .nickname(estudiante.getNickname())
+                .nombre(estudiante.getNombre())
+                .apellido(estudiante.getApellido())
+                .correo(estudiante.getUsuario().getCorreo())
+                .fechaRegistro(estudiante.getFechaRegistro())
+                .pais(estudiante.getPais())
+                .build();
     }
 }
