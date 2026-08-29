@@ -11,6 +11,7 @@ import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Rol;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.EstudianteRepository;
+import com.example.pvge.repository.UsuarioRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +21,12 @@ import lombok.RequiredArgsConstructor;
 public class EstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final UsuarioService usuarioService;
-    
+    private final UsuarioRepository usuarioRepository;
     @Transactional
     public EstudianteResponse crearEstudiante(EstudianteRequest request){
+        if (usuarioRepository.findByCorreo(request.getCorreo()).isPresent()) {
+            throw new RuntimeException("El usuario ya existe");
+        }
         Usuario usuario = usuarioService.crearUsuario(request.getCorreo(), request.getPassword(), Rol.ESTUDIANTE);
         Estudiante estudiante = Estudiante.builder()
         .nickname(request.getNickname())
