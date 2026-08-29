@@ -22,6 +22,7 @@ public class EstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final UsuarioService usuarioService;
     private final UsuarioRepository usuarioRepository;
+    
     @Transactional
     public EstudianteResponse crearEstudiante(EstudianteRequest request){
         if (usuarioRepository.findByCorreo(request.getCorreo()).isPresent()) {
