@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(
                         authRequest -> authRequest
                                 .requestMatchers(HttpMethod.POST, "/api/estudiantes").permitAll()
+                                .requestMatchers("/api/auth/**").permitAll()
                                 .requestMatchers("/api/admin/**")
                                 .hasAuthority("ADMIN").anyRequest().authenticated())
                 .sessionManagement(
