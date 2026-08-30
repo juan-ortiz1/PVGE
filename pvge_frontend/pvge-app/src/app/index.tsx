@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { View, Text, Pressable, TextInput } from "react-native";
 import { Check } from "lucide-react-native";
 import { useState } from "react";
@@ -9,17 +10,35 @@ import {
   Lock,
 } from "lucide-react-native";
 
-const roles = ["Estudiante", "Instructor", "Admin"];
-
-export default function Home() {
+export default function Login() {
   const [checked, setChecked] = useState(false);
   const [show, setShow] = useState(false);
 
-  const [role, setRole] = useState("Estudiante");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleSubmit = async () => {
+    try {
+      const res = await fetch("http://localhost:8081/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          correo: email,
+          password,
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Error al iniciar sesión");
+      }
+
+      const data = await res.json();
+      router.replace("/home");
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <View className="flex-1 bg-blue-100 ">
@@ -37,7 +56,9 @@ export default function Home() {
           </Text>
           <Text className="text-sm text-gray-700 mb-5">
             Si no tienes cuenta,{" "}
-            <Text className="underline">regístrate aquí.</Text>
+            <Pressable onPress={() => router.replace("/register")}>
+              <Text className="underline">regístrate aquí.</Text>
+            </Pressable>
           </Text>
         </View>
         <View>
@@ -71,7 +92,7 @@ export default function Home() {
               {show ? <EyeClosedIcon /> : <Eye />}
             </Pressable>
           </View>
-          <View className="mb-10">
+          <View className="mb-10 relative">
             <Pressable
               onPress={() => setChecked(!checked)}
               className="flex-row gap-2"
@@ -94,7 +115,10 @@ export default function Home() {
             </Text>
           </View>
           <View className="items-center">
-            <Pressable className="h-12 w-3/4 bg-blue-600 items-center justify-center rounded shadow-md">
+            <Pressable
+              onPress={handleSubmit}
+              className="h-12 w-3/4 bg-blue-600 items-center justify-center rounded shadow-md"
+            >
               <Text className="text-white font-bold text-xl">
                 Iniciar sesión
               </Text>
