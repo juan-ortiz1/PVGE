@@ -42,14 +42,14 @@ export default function Register() {
 
   const handleSubmit = async () => {
     try {
-      const res = await fetch("http://localhost:8081/api/auth/", {
+      const res = await fetch("http://localhost:8080/api/estudiantes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nickname,
           nombre,
           apellido,
-          email,
+          correo: email,
           password,
           pais: pais?.name,
         }),
