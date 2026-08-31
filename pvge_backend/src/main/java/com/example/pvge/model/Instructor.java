@@ -28,9 +28,6 @@ public class Instructor {
     @Column(name = "nombre")
     private String nombre;
 
-    @Column(name = "password", nullable = false)
-    private String password;
-
     @Column(name = "disciplina")
     private String disciplina;
 
