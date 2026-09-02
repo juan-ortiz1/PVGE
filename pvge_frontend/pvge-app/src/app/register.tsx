@@ -61,7 +61,7 @@ export default function Register() {
       }
 
       const data = await res.json();
-      router.replace("/home");
+      router.replace("/");
     } catch (e) {
       console.error(e);
     }

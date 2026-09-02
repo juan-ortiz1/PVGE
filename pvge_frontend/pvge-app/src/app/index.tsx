@@ -9,6 +9,7 @@ import {
   Mail,
   Lock,
 } from "lucide-react-native";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const [checked, setChecked] = useState(false);
@@ -16,6 +17,8 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const { login } = useAuth();
 
   const handleSubmit = async () => {
     try {
@@ -34,6 +37,7 @@ export default function Login() {
       }
 
       const data = await res.json();
+      await login(data.accessToken, data.refreshToken);
       router.replace("/home");
     } catch (e) {
       console.error(e);
