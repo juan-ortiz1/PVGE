@@ -10,8 +10,8 @@ import com.example.pvge.dto.auth.AuthResponse;
 import com.example.pvge.dto.auth.LoginRequest;
 import com.example.pvge.jwt.JWTService;
 import com.example.pvge.model.RefreshToken;
-import com.example.pvge.model.RefreshTokenRepository;
 import com.example.pvge.model.Usuario;
+import com.example.pvge.repository.RefreshTokenRepository;
 import com.example.pvge.repository.UsuarioRepository;
 
 import lombok.RequiredArgsConstructor;
