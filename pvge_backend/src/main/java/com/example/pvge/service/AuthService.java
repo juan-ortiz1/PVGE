@@ -35,6 +35,7 @@ public class AuthService {
         return AuthResponse.builder()
                 .accessToken(token)
                 .refreshToken(refreshToken)
+                .rol(usuario.getRol())
                 .build();
     }
 
@@ -60,6 +61,7 @@ public class AuthService {
         return AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(newRefreshToken)
+                .rol(usuario.getRol())
                 .build();
     }
 
