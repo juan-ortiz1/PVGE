@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface EstudianteRepository extends JpaRepository<Estudiante, Integer> {
     Optional<Estudiante> findById(Integer id);
     Optional<Estudiante> findByNickname(String nickname);
+    Optional<Estudiante> findByUsuarioId(Integer id);
 }

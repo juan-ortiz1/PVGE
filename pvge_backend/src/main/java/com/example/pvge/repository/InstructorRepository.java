@@ -9,5 +9,6 @@ import java.util.Optional;
 public interface InstructorRepository extends JpaRepository<Instructor, Integer> {
     Optional<Instructor> findById(Integer id);
     Optional<Instructor>  findByNombre(String nombre);
+    Optional<Instructor> findByUsuarioId(Integer id);
 
 }
