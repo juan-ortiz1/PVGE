@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.pvge.dto.instructor.InstructorRequest;
 import com.example.pvge.dto.instructor.InstructorResponse;
+import com.example.pvge.mapper.InstructorMapper;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
 import com.example.pvge.model.Usuario;
@@ -20,6 +21,7 @@ public class InstructorService {
     private final UsuarioRepository usuarioRepository;
     private final InstructorRepository instructorRepository;
     private final UsuarioService usuarioService;
+    private final InstructorMapper instructorMapper;
 
     @Transactional
     public InstructorResponse crearInstructor(InstructorRequest request){
@@ -34,16 +36,8 @@ public class InstructorService {
         .usuario(usuario)
         .build();
         instructorRepository.save(instructor);
-        return buildInstructorResponse(instructor);
+        return instructorMapper.toResponse(instructor);
     }
 
-    private InstructorResponse buildInstructorResponse(Instructor instructor){
-        return InstructorResponse.builder()
-        .id(instructor.getId())
-        .nombre(instructor.getNombre())
-        .correo(instructor.getUsuario().getCorreo())
-        .disciplina(instructor.getDisciplina())
-        .tier(instructor.getTier())
-        .build();
-    }
+
 }
