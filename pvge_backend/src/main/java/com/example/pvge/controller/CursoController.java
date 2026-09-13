@@ -43,5 +43,10 @@ public class CursoController {
         return ResponseEntity.ok(cursoService.getListaCursos(titulo));
     }
     
+    @PostMapping("/inscribir/{id}")
+    public ResponseEntity<String> inscribirCurso(@PathVariable Integer id, Authentication authentication) {
+        return ResponseEntity.ok(cursoService.inscribirCurso(id, authentication));
+    }
+    
     
 }

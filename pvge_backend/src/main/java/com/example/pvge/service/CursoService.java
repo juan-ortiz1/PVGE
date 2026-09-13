@@ -1,5 +1,6 @@
 package com.example.pvge.service;
 
+import com.example.pvge.repository.InscripcionCursoRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -9,11 +10,13 @@ import org.springframework.stereotype.Service;
 import com.example.pvge.dto.curso.CursoRequest;
 import com.example.pvge.dto.curso.CursoResponse;
 import com.example.pvge.mapper.CursoMapper;
-import com.example.pvge.mapper.InstructorMapper;
 import com.example.pvge.model.Curso;
+import com.example.pvge.model.Estudiante;
+import com.example.pvge.model.InscripcionCurso;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.CursoRepository;
+import com.example.pvge.repository.EstudianteRepository;
 import com.example.pvge.repository.InstructorRepository;
 import com.example.pvge.repository.UsuarioRepository;
 
@@ -23,9 +26,11 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class CursoService {
+    private final InscripcionCursoRepository inscripcionCursoRepository;
     private final CursoRepository cursoRepository;
     private final UsuarioRepository usuarioRepository;
     private final InstructorRepository instructorRepository;
+    private final EstudianteRepository estudianteRepository;
     private final CursoMapper cursoMapper;
 
     @Transactional
@@ -60,7 +65,28 @@ public class CursoService {
         } else {
             cursos = cursoRepository.findByTituloContainingIgnoreCase(titulo);
         }
-
         return cursos.stream().map(cursoMapper::toResponse).toList();
+    }
+
+    @Transactional
+    public String inscribirCurso(Integer idCurso, Authentication authentication) {
+        String correo = authentication.getName();
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+        Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+        Curso curso = cursoRepository.findById(idCurso)
+                .orElseThrow(() -> new RuntimeException("No se encontró el curso."));
+        if (Boolean.TRUE
+                .equals(inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(), curso.getId()))) {
+            throw new RuntimeException("El estudiante ya está asociado a ese curso");
+        }
+        InscripcionCurso inscripcion = InscripcionCurso.builder()
+                .fechaInscripcion(LocalDateTime.now())
+                .estudiante(estudiante)
+                .curso(curso)
+                .build();
+        inscripcionCursoRepository.save(inscripcion);
+        return "Curso inscrito exitosamente.";
     }
 }
