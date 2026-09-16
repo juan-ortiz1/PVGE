@@ -21,4 +21,5 @@ public class CursoResponse {
     private String descripcion;
     private LocalDateTime fechaCreacion;
     private InstructorResponse instructor;
+    private Boolean inscrito;
 }

@@ -39,8 +39,8 @@ public class CursoController {
     }
     
     @GetMapping()
-    public ResponseEntity<List<CursoResponse>> getListaCursos(@RequestParam(required = false) String titulo) {
-        return ResponseEntity.ok(cursoService.getListaCursos(titulo));
+    public ResponseEntity<List<CursoResponse>> getListaCursos(@RequestParam(required = false) String titulo, Authentication authentication) {
+        return ResponseEntity.ok(cursoService.getListaCursos(titulo, authentication));
     }
     
     @PostMapping("/inscribir/{id}")

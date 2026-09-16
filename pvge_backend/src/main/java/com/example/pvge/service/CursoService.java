@@ -58,14 +58,25 @@ public class CursoService {
     }
 
     @Transactional
-    public List<CursoResponse> getListaCursos(String titulo) {
+    public List<CursoResponse> getListaCursos(String titulo, Authentication authentication) {
+        String correo = authentication.getName();
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
+            .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+
+        Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+            .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
         List<Curso> cursos;
         if (titulo == null || titulo.isBlank()) {
             cursos = cursoRepository.findAll();
         } else {
             cursos = cursoRepository.findByTituloContainingIgnoreCase(titulo);
         }
-        return cursos.stream().map(cursoMapper::toResponse).toList();
+        return cursos.stream().map(curso -> {Boolean inscrito = inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),curso.getId());
+                CursoResponse response = cursoMapper.toResponse(curso);
+                response.setInscrito(inscrito);
+                return response;
+            })
+            .toList();
     }
 
     @Transactional
