@@ -12,4 +12,5 @@ import com.example.pvge.model.Curso;
 public interface CursoRepository extends JpaRepository<Curso, Integer>{
     Optional<Curso> findById(Integer id);
     List<Curso> findByTituloContainingIgnoreCase(String titulo);
+    List<Curso> findByActivoTrue();
 }

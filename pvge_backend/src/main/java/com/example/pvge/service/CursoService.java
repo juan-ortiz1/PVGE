@@ -26,96 +26,118 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class CursoService {
-    private final InscripcionCursoRepository inscripcionCursoRepository;
-    private final CursoRepository cursoRepository;
-    private final UsuarioRepository usuarioRepository;
-    private final InstructorRepository instructorRepository;
-    private final EstudianteRepository estudianteRepository;
-    private final CursoMapper cursoMapper;
+        private final InscripcionCursoRepository inscripcionCursoRepository;
+        private final CursoRepository cursoRepository;
+        private final UsuarioRepository usuarioRepository;
+        private final InstructorRepository instructorRepository;
+        private final EstudianteRepository estudianteRepository;
+        private final CursoMapper cursoMapper;
 
-    @Transactional
-    public CursoResponse addCurso(CursoRequest request, Authentication authentication) {
-        String correo = authentication.getName();
-        Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("El usuario no ha sido encontrado."));
-        Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
-                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
-        Curso curso = Curso.builder()
-                .titulo(request.getTitulo())
-                .descripcion(request.getDescripcion())
-                .fechaCreacion(LocalDateTime.now())
-                .instructor(instructor)
-                .build();
-        cursoRepository.save(curso);
-        return cursoMapper.toResponse(curso);
-    }
-
-    @Transactional
-    public CursoResponse actualizarCurso(Integer id, CursoRequest request, Authentication authentication) {
-        String correo = authentication.getName();
-        Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("El usuario no ha sido encontrado."));
-        Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
-                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
-        Curso curso = cursoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("El curso no ha sido encontrado por el ID"));
-        if (!curso.getInstructor().getId().equals(instructor.getId())) {
-            throw new RuntimeException("No puedes editar un curso que no es tuyo.");
+        @Transactional
+        public CursoResponse addCurso(CursoRequest request, Authentication authentication) {
+                String correo = authentication.getName();
+                Usuario usuario = usuarioRepository.findByCorreo(correo)
+                                .orElseThrow(() -> new RuntimeException("El usuario no ha sido encontrado."));
+                Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+                Curso curso = Curso.builder()
+                                .titulo(request.getTitulo())
+                                .descripcion(request.getDescripcion())
+                                .fechaCreacion(LocalDateTime.now())
+                                .instructor(instructor)
+                                .build();
+                cursoRepository.save(curso);
+                return cursoMapper.toResponse(curso);
         }
-        curso.setTitulo(request.getTitulo());
-        curso.setDescripcion(request.getDescripcion());
-        cursoRepository.save(curso);
-        return cursoMapper.toResponse(curso);
-    }
 
-    @Transactional
-    public CursoResponse getCursoById(Integer id) {
-        Curso curso = cursoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("El curso no ha sido encontrado por el ID"));
-        return cursoMapper.toResponse(curso);
-    }
-
-    @Transactional
-    public List<CursoResponse> getListaCursos(String titulo, Authentication authentication) {
-        String correo = authentication.getName();
-        Usuario usuario = usuarioRepository.findByCorreo(correo)
-            .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
-
-        Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
-            .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
-        List<Curso> cursos;
-        if (titulo == null || titulo.isBlank()) {
-            cursos = cursoRepository.findAll();
-        } else {
-            cursos = cursoRepository.findByTituloContainingIgnoreCase(titulo);
+        @Transactional
+        public CursoResponse actualizarCurso(Integer id, CursoRequest request, Authentication authentication) {
+                String correo = authentication.getName();
+                Usuario usuario = usuarioRepository.findByCorreo(correo)
+                                .orElseThrow(() -> new RuntimeException("El usuario no ha sido encontrado."));
+                Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+                Curso curso = cursoRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("El curso no ha sido encontrado por el ID"));
+                if (!curso.getInstructor().getId().equals(instructor.getId())) {
+                        throw new RuntimeException("No puedes editar un curso que no es tuyo.");
+                }
+                curso.setTitulo(request.getTitulo());
+                curso.setDescripcion(request.getDescripcion());
+                cursoRepository.save(curso);
+                return cursoMapper.toResponse(curso);
         }
-        return cursos.stream().map(curso -> {Boolean inscrito = inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),curso.getId());
-                CursoResponse response = cursoMapper.toResponse(curso);
-                response.setInscrito(inscrito);
-                return response;
-            })
-            .toList();
-    }
 
-    @Transactional
-    public String inscribirCurso(Integer idCurso, Authentication authentication) {
-        String correo = authentication.getName();
-        Usuario usuario = usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
-        Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
-                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
-        Curso curso = cursoRepository.findById(idCurso)
-                .orElseThrow(() -> new RuntimeException("No se encontró el curso."));
-        if (Boolean.TRUE
-                .equals(inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(), curso.getId()))) {
-            throw new RuntimeException("El estudiante ya está asociado a ese curso");
+        @Transactional
+        public CursoResponse getCursoById(Integer id) {
+                Curso curso = cursoRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("El curso no ha sido encontrado por el ID"));
+                return cursoMapper.toResponse(curso);
         }
-        InscripcionCurso inscripcion = InscripcionCurso.builder()
-                .fechaInscripcion(LocalDateTime.now())
-                .estudiante(estudiante)
-                .curso(curso)
-                .build();
-        inscripcionCursoRepository.save(inscripcion);
-        return "Curso inscrito exitosamente.";
-    }
+
+        @Transactional
+        public List<CursoResponse> getListaCursos(String titulo, Authentication authentication) {
+                String correo = authentication.getName();
+                Usuario usuario = usuarioRepository.findByCorreo(correo)
+                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+
+                Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+                List<Curso> cursos;
+                if (titulo == null || titulo.isBlank()) {
+                        cursos = cursoRepository.findAll();
+                } else {
+                        cursos = cursoRepository.findByTituloContainingIgnoreCase(titulo);
+                }
+                return cursos.stream().map(curso -> {
+                        Boolean inscrito = inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),
+                                        curso.getId());
+                        CursoResponse response = cursoMapper.toResponse(curso);
+                        response.setInscrito(inscrito);
+                        return response;
+                })
+                                .toList();
+        }
+
+        /**
+         * Sobrecarga de método getListaCursos() para uso sin autenticación.
+         * En este caso no importa si el usuario activo está inscrito
+         * @return
+         */
+        @Transactional 
+        public List<CursoResponse> getListaCursos(){
+                List<Curso> cursos = cursoRepository.findByActivoTrue();
+                return cursos.stream().map(cursoMapper::toResponse).toList();
+        }
+
+        @Transactional
+        public String inscribirCurso(Integer idCurso, Authentication authentication) {
+                String correo = authentication.getName();
+                Usuario usuario = usuarioRepository.findByCorreo(correo)
+                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+                Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+                Curso curso = cursoRepository.findById(idCurso)
+                                .orElseThrow(() -> new RuntimeException("No se encontró el curso."));
+                if (Boolean.TRUE
+                                .equals(inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),
+                                                curso.getId()))) {
+                        throw new RuntimeException("El estudiante ya está asociado a ese curso");
+                }
+                InscripcionCurso inscripcion = InscripcionCurso.builder()
+                                .fechaInscripcion(LocalDateTime.now())
+                                .estudiante(estudiante)
+                                .curso(curso)
+                                .build();
+                inscripcionCursoRepository.save(inscripcion);
+                return "Curso inscrito exitosamente.";
+        }
+
+        @Transactional
+        public String eliminarCurso(Integer id) {
+                Curso curso = cursoRepository.findById(id).orElseThrow(() -> new RuntimeException("Curso no encontrado"));
+                curso.setActivo(false);
+                cursoRepository.save(curso);
+                return "Curso eliminado exitosamente";
+        }
 }

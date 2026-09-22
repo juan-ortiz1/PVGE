@@ -38,4 +38,6 @@ public class Curso {
     @ManyToOne
     @JoinColumn(name = "instructor_id")
     private Instructor instructor;
+
+    private Boolean activo;
 }
