@@ -5,7 +5,10 @@ import java.util.List;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.example.pvge.dto.curso.CursoResponse;
 import com.example.pvge.dto.usuario.UsuarioResponse;
+import com.example.pvge.mapper.UsuarioMapper;
+import com.example.pvge.model.Curso;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
@@ -24,6 +27,7 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final EstudianteRepository estudianteRepository;
     private final InstructorRepository instructorRepository;
+    private final UsuarioMapper usuarioMapper;
 
     @Transactional
     public Usuario crearUsuario(String correo, String contraseña, Rol rol) {
@@ -37,6 +41,7 @@ public class UsuarioService {
         return usuarios.stream()
         .map(this::buildUsuarioResponse).toList();
     }
+
     @Transactional
     public String eliminarUsuario(Integer id){
         Usuario usuario = usuarioRepository.findById(id).orElseThrow();
@@ -56,12 +61,8 @@ public class UsuarioService {
         } else{
             nombre = "Administrador";
         }
-        return UsuarioResponse.builder()
-        .id(usuario.getId())
-        .nombre(nombre)
-        .correo(usuario.getCorreo())
-        .rol(usuario.getRol())
-        .activo(usuario.getActivo())
-        .build();
+        return usuarioMapper.toResponse(usuario, nombre);
     }
+
+
 }
