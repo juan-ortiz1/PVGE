@@ -51,6 +51,24 @@ public class CursoService {
     }
 
     @Transactional
+    public CursoResponse actualizarCurso(Integer id, CursoRequest request, Authentication authentication) {
+        String correo = authentication.getName();
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("El usuario no ha sido encontrado."));
+        Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
+                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+        Curso curso = cursoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("El curso no ha sido encontrado por el ID"));
+        if (!curso.getInstructor().getId().equals(instructor.getId())) {
+            throw new RuntimeException("No puedes editar un curso que no es tuyo.");
+        }
+        curso.setTitulo(request.getTitulo());
+        curso.setDescripcion(request.getDescripcion());
+        cursoRepository.save(curso);
+        return cursoMapper.toResponse(curso);
+    }
+
+    @Transactional
     public CursoResponse getCursoById(Integer id) {
         Curso curso = cursoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("El curso no ha sido encontrado por el ID"));

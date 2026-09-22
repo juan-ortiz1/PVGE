@@ -14,6 +14,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +32,11 @@ public class CursoController {
     @PostMapping()
     public ResponseEntity<CursoResponse> addCurso(@RequestBody CursoRequest request, Authentication authentication) {
         return ResponseEntity.ok(cursoService.addCurso(request, authentication));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<CursoResponse> actualizarCurso(@PathVariable Integer id, @RequestBody CursoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(cursoService.actualizarCurso(id, request, authentication));
     }
 
     @GetMapping("/{id}")
