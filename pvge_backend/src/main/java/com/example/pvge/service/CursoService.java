@@ -45,6 +45,7 @@ public class CursoService {
                                 .titulo(request.getTitulo())
                                 .descripcion(request.getDescripcion())
                                 .fechaCreacion(LocalDateTime.now())
+                                .activo(true)
                                 .instructor(instructor)
                                 .build();
                 cursoRepository.save(curso);
