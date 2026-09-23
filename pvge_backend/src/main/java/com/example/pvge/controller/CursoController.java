@@ -48,6 +48,12 @@ public class CursoController {
     public ResponseEntity<List<CursoResponse>> getListaCursos(@RequestParam(required = false) String titulo, Authentication authentication) {
         return ResponseEntity.ok(cursoService.getListaCursos(titulo, authentication));
     }
+
+    @GetMapping("/miscursos")
+    public ResponseEntity<List<CursoResponse>> getListaCursos(Authentication authentication) {
+        return ResponseEntity.ok(cursoService.getListaCursos(authentication));
+    }
+        
     
     @PostMapping("/inscribir/{id}")
     public ResponseEntity<String> inscribirCurso(@PathVariable Integer id, Authentication authentication) {

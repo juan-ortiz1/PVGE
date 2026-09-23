@@ -14,6 +14,7 @@ import com.example.pvge.model.Curso;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.InscripcionCurso;
 import com.example.pvge.model.Instructor;
+import com.example.pvge.model.Rol;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.CursoRepository;
 import com.example.pvge.repository.EstudianteRepository;
@@ -110,6 +111,16 @@ public class CursoService {
                 return cursos.stream().map(cursoMapper::toResponse).toList();
         }
 
+        @Transactional
+        public List<CursoResponse> getListaCursos(Authentication authentication){
+                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName()).orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                List<Curso> cursos = null;
+                if (usuario.getRol() == Rol.INSTRUCTOR) {
+                        Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId()).orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+                        cursos = cursoRepository.findByInstructorAndActivoTrue(instructor);
+                }
+                return cursos.stream().map(cursoMapper::toResponse).toList();
+        }
         @Transactional
         public String inscribirCurso(Integer idCurso, Authentication authentication) {
                 String correo = authentication.getName();
