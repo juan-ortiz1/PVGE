@@ -77,25 +77,33 @@ public class CursoService {
         }
 
         public List<CursoResponse> getListaCursos(String titulo, Authentication authentication) {
-                String correo = authentication.getName();
-                Usuario usuario = usuarioRepository.findByCorreo(correo)
-                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
+                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-                Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
-                                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
                 List<Curso> cursos;
                 if (titulo == null || titulo.isBlank()) {
                         cursos = cursoRepository.findByActivoTrue();
                 } else {
                         cursos = cursoRepository.findByActivoTrueAndTituloContainingIgnoreCase(titulo);
                 }
-                return cursos.stream().map(curso -> {
-                        Boolean inscrito = inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),
-                                        curso.getId());
-                        CursoResponse response = cursoMapper.toResponse(curso);
-                        response.setInscrito(inscrito);
-                        return response;
-                })
+                if (usuario.getRol() == Rol.ESTUDIANTE) {
+                        Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                                        .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+
+                        return cursos.stream().map(curso -> {
+                                Boolean inscrito = inscripcionCursoRepository
+                                                .existsByEstudianteIdAndCursoId(
+                                                                estudiante.getId(),
+                                                                curso.getId());
+
+                                CursoResponse response = cursoMapper.toResponse(curso);
+                                response.setInscrito(inscrito);
+
+                                return response;
+                        }).toList();
+                }
+                return cursos.stream()
+                                .map(cursoMapper::toResponse)
                                 .toList();
         }
 
@@ -127,8 +135,7 @@ public class CursoService {
                                         .map(InscripcionCurso::getCurso)
                                         .filter(Curso::getActivo)
                                         .toList();
-                }
-                 else {
+                } else {
                         throw new RuntimeException("El usuario no tiene un perfil válido");
                 }
                 return cursos.stream().map(cursoMapper::toResponse).toList();
@@ -147,9 +154,6 @@ public class CursoService {
                                 .equals(inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),
                                                 curso.getId()))) {
                         throw new RuntimeException("El estudiante ya está asociado a ese curso");
-                }
-                if (!curso.getActivo()) {
-                        throw new RuntimeException("No puedes inscribirte a este curso");
                 }
                 InscripcionCurso inscripcion = InscripcionCurso.builder()
                                 .fechaInscripcion(LocalDateTime.now())
