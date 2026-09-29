@@ -31,6 +31,11 @@ public class AdminController {
         return ResponseEntity.ok(usuarioService.getUsuarios());
     }
 
+    @GetMapping("/usuarios/{id}/cursos")
+    public ResponseEntity<List<String>> getCursosMatriculados(@PathVariable Integer id) {
+        return ResponseEntity.ok(usuarioService.getCursosMatriculados(id));
+    }
+
     @DeleteMapping("/usuarios/{id}")
     public ResponseEntity<String> eliminarUsuario(@PathVariable Integer id){
         return ResponseEntity.ok(usuarioService.eliminarUsuario(id));

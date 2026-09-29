@@ -10,10 +10,12 @@ import com.example.pvge.dto.usuario.UsuarioResponse;
 import com.example.pvge.mapper.UsuarioMapper;
 import com.example.pvge.model.Curso;
 import com.example.pvge.model.Estudiante;
+import com.example.pvge.model.InscripcionCurso;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.EstudianteRepository;
+import com.example.pvge.repository.InscripcionCursoRepository;
 import com.example.pvge.repository.InstructorRepository;
 import com.example.pvge.repository.UsuarioRepository;
 
@@ -27,6 +29,7 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final EstudianteRepository estudianteRepository;
     private final InstructorRepository instructorRepository;
+    private final InscripcionCursoRepository inscripcionCursoRepository;
     private final UsuarioMapper usuarioMapper;
 
     @Transactional
@@ -48,6 +51,21 @@ public class UsuarioService {
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
         return "Usuario eliminado exitosamente";
+    }
+
+    public List<String> getCursosMatriculados(Integer usuarioId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        if (usuario.getRol() != Rol.ESTUDIANTE) {
+            return List.of();
+        }
+        Estudiante estudiante = estudianteRepository.findByUsuarioId(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+        return inscripcionCursoRepository.findByEstudianteId(estudiante.getId()).stream()
+                .map(InscripcionCurso::getCurso)
+                .filter(Curso::getActivo)
+                .map(Curso::getTitulo)
+                .toList();
     }
 
     private UsuarioResponse buildUsuarioResponse(Usuario usuario){
