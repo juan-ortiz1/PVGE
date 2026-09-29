@@ -70,14 +70,12 @@ public class CursoService {
                 return cursoMapper.toResponse(curso);
         }
 
-        @Transactional
         public CursoResponse getCursoById(Integer id) {
                 Curso curso = cursoRepository.findById(id)
                                 .orElseThrow(() -> new RuntimeException("El curso no ha sido encontrado por el ID"));
                 return cursoMapper.toResponse(curso);
         }
 
-        @Transactional
         public List<CursoResponse> getListaCursos(String titulo, Authentication authentication) {
                 String correo = authentication.getName();
                 Usuario usuario = usuarioRepository.findByCorreo(correo)
@@ -87,9 +85,9 @@ public class CursoService {
                                 .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
                 List<Curso> cursos;
                 if (titulo == null || titulo.isBlank()) {
-                        cursos = cursoRepository.findAll();
+                        cursos = cursoRepository.findByActivoTrue();
                 } else {
-                        cursos = cursoRepository.findByTituloContainingIgnoreCase(titulo);
+                        cursos = cursoRepository.findByActivoTrueAndTituloContainingIgnoreCase(titulo);
                 }
                 return cursos.stream().map(curso -> {
                         Boolean inscrito = inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),
@@ -107,13 +105,11 @@ public class CursoService {
          * 
          * @return
          */
-        @Transactional
         public List<CursoResponse> getListaCursos() {
                 List<Curso> cursos = cursoRepository.findByActivoTrue();
                 return cursos.stream().map(cursoMapper::toResponse).toList();
         }
 
-        @Transactional
         public List<CursoResponse> getMisCursos(Authentication authentication) {
                 Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
                                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
@@ -131,8 +127,6 @@ public class CursoService {
                                         .map(InscripcionCurso::getCurso)
                                         .filter(Curso::getActivo)
                                         .toList();
-                }else if(usuario.getRol() == Rol.ADMIN){
-                        return getListaCursos();
                 }
                  else {
                         throw new RuntimeException("El usuario no tiene un perfil válido");
@@ -153,6 +147,9 @@ public class CursoService {
                                 .equals(inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),
                                                 curso.getId()))) {
                         throw new RuntimeException("El estudiante ya está asociado a ese curso");
+                }
+                if (!curso.getActivo()) {
+                        throw new RuntimeException("No puedes inscribirte a este curso");
                 }
                 InscripcionCurso inscripcion = InscripcionCurso.builder()
                                 .fechaInscripcion(LocalDateTime.now())
