@@ -30,7 +30,7 @@ public class ContenidoController {
         return ResponseEntity.ok(contenidoService.getContenidoById(id, authentication));
     }
 
-    @GetMapping("/{cursoId}")
+    @GetMapping("/curso/{cursoId}")
     public ResponseEntity<List<ContenidoResponse>> getListaContenidos(@PathVariable Integer cursoId, Authentication authentication) {
         return ResponseEntity.ok(contenidoService.getListaContenidos(cursoId,authentication));
     }

@@ -80,7 +80,24 @@ public class ContenidoService {
         }
 
         public List<ContenidoResponse> getListaContenidos(Integer cursoId, Authentication authentication){
-                return null; //TODO
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
+                Curso curso = findCursoById(cursoId);
+                 if (usuario.getRol() == Rol.ESTUDIANTE) {
+                        Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
+                        Boolean inscrito = existsByEstudianteIdAndCursoId(estudiante.getId(), curso.getId());
+                        if (Boolean.FALSE.equals(inscrito)) {
+                                throw new RuntimeException("El estudiante no puede ver contenidos de un curso al que no está inscrito");
+                        }
+                }
+                if (usuario.getRol() == Rol.INSTRUCTOR) {
+                        Instructor instructor = findInstructorByUsuarioId(usuario.getId());
+                        Boolean propietario = esPropietarioCurso(instructor.getId(), curso);
+                        if (Boolean.FALSE.equals(propietario)) {
+                                throw new RuntimeException("No puedes ver contenidos de un curso que no es tuyo.");
+                        }
+                }
+                List<Contenido> contenidos = contenidoRepository.findByCursoId(cursoId);
+                return contenidos.stream().map(contenidoMapper::toResponse).toList();
         }
         private boolean esPropietarioCurso(Integer instructorId, Curso curso){
                 return curso.getInstructor().getId().equals(instructorId);

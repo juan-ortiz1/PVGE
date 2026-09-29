@@ -51,7 +51,7 @@ public class CursoController {
 
     @GetMapping("/miscursos")
     public ResponseEntity<List<CursoResponse>> getListaCursos(Authentication authentication) {
-        return ResponseEntity.ok(cursoService.getListaCursos(authentication));
+        return ResponseEntity.ok(cursoService.getMisCursos(authentication));
     }
         
     

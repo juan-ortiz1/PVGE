@@ -104,24 +104,42 @@ public class CursoService {
         /**
          * Sobrecarga de método getListaCursos() para uso sin autenticación.
          * En este caso no importa si el usuario activo está inscrito
+         * 
          * @return
          */
-        @Transactional 
-        public List<CursoResponse> getListaCursos(){
+        @Transactional
+        public List<CursoResponse> getListaCursos() {
                 List<Curso> cursos = cursoRepository.findByActivoTrue();
                 return cursos.stream().map(cursoMapper::toResponse).toList();
         }
 
         @Transactional
-        public List<CursoResponse> getListaCursos(Authentication authentication){
-                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName()).orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-                List<Curso> cursos = null;
+        public List<CursoResponse> getMisCursos(Authentication authentication) {
+                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
+                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                List<Curso> cursos;
                 if (usuario.getRol() == Rol.INSTRUCTOR) {
-                        Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId()).orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+                        Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
+                                        .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
                         cursos = cursoRepository.findByInstructorAndActivoTrue(instructor);
+                } else if (usuario.getRol() == Rol.ESTUDIANTE) {
+                        Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                                        .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+                        List<InscripcionCurso> inscripciones = inscripcionCursoRepository
+                                        .findByEstudianteId(estudiante.getId());
+                        cursos = inscripciones.stream()
+                                        .map(InscripcionCurso::getCurso)
+                                        .filter(Curso::getActivo)
+                                        .toList();
+                }else if(usuario.getRol() == Rol.ADMIN){
+                        return getListaCursos();
+                }
+                 else {
+                        throw new RuntimeException("El usuario no tiene un perfil válido");
                 }
                 return cursos.stream().map(cursoMapper::toResponse).toList();
         }
+
         @Transactional
         public String inscribirCurso(Integer idCurso, Authentication authentication) {
                 String correo = authentication.getName();
@@ -147,7 +165,8 @@ public class CursoService {
 
         @Transactional
         public String eliminarCurso(Integer id) {
-                Curso curso = cursoRepository.findById(id).orElseThrow(() -> new RuntimeException("Curso no encontrado"));
+                Curso curso = cursoRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Curso no encontrado"));
                 curso.setActivo(false);
                 cursoRepository.save(curso);
                 return "Curso eliminado exitosamente";
