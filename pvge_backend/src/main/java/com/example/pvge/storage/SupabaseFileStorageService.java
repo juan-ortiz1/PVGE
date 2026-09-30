@@ -56,6 +56,17 @@ public class SupabaseFileStorageService implements FileStorageService {
 
     @Override
     public void delete(String url) {
-        throw new UnsupportedOperationException("Unimplemented method 'delete'");
+        try {
+            String prefix = supabaseUrl + "/storage/v1/object/public/" + bucket + "/";
+            String path = url.substring(prefix.length());
+            restClient.delete()
+                .uri("/storage/v1/object/{bucket}/{path}", bucket, path)
+                .header("Authorization", "Bearer " + supabaseKey)
+                .header("apikey", supabaseKey)
+                .retrieve()
+                .toBodilessEntity();
+        } catch (Exception e) {
+            throw new RuntimeException("No se pudo eliminar el archivo", e);
+        }
     }
 }

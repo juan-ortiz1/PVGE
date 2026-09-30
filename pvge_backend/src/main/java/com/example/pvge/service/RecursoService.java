@@ -81,6 +81,36 @@ public class RecursoService {
                 return recursos.stream().map(recursoMapper::toResponse).toList();
         }
 
+        @Transactional
+        public String deleteRecurso(Integer id, Authentication authentication) {
+                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
+                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                Recurso recurso = recursoRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Recurso no encontrado"));
+                verificarAccesoInstructor(usuario, recurso);
+                fileStorageService.delete(recurso.getUrl());
+                recursoRepository.delete(recurso);
+                return "Recurso eliminado exitosamente";
+        }
+
+        private void verificarAccesoInstructor(Usuario usuario, Recurso recurso) {
+                if (usuario.getRol() != Rol.INSTRUCTOR) {
+                        throw new RuntimeException(
+                                        "Solo un instructor puede modificar recursos");
+                }
+                Instructor instructor = instructorRepository
+                                .findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+                if (!recurso.getContenido()
+                                .getCurso()
+                                .getInstructor()
+                                .getId()
+                                .equals(instructor.getId())) {
+                        throw new RuntimeException(
+                                        "No puedes modificar un recurso que no es tuyo");
+                }
+        }
+
         /**
          * Verificar acceso a un recurso
          * 
