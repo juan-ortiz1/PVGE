@@ -1,135 +1,184 @@
-import { router } from "expo-router";
-import { View, Text, Pressable, TextInput } from "react-native";
-import { Check } from "lucide-react-native";
 import { useState } from "react";
 import {
-  Eye,
-  EyeClosedIcon,
-  GraduationCap,
-  Mail,
-  Lock,
-} from "lucide-react-native";
+  View,
+  Text,
+  Pressable,
+  TextInput,
+  Image,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
+import { router } from "expo-router";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 
+const fieldClass = (err?: string) =>
+  `flex-row items-center bg-gray-50 border rounded-xl px-3 h-12 ${
+    err ? "border-red-400" : "border-gray-200"
+  }`;
+
+const FieldError = ({ msg }: { msg?: string }) =>
+  msg ? <Text className="text-red-600 text-xs mt-1">{msg}</Text> : null;
+
 export default function Login() {
-  const [checked, setChecked] = useState(false);
-  const [show, setShow] = useState(false);
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  const { login } = useAuth();
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {},
+  );
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
+    setServerError(null);
+    const e: typeof errors = {};
+    if (!email.trim()) e.email = "Ingresa tu correo";
+    if (!password) e.password = "Ingresa tu contraseña";
+    setErrors(e);
+    if (Object.keys(e).length) return;
+
+    setLoading(true);
     try {
       const res = await fetch("http://localhost:8080/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          correo: email,
-          password,
-        }),
+        body: JSON.stringify({ correo: email.trim(), password }),
       });
 
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : null;
+
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Error al iniciar sesión");
+        throw new Error(
+          res.status === 401 || res.status === 403
+            ? "Correo o contraseña incorrectos"
+            : data?.message || "Error al iniciar sesión",
+        );
       }
 
-      const data = await res.json();
-      await login(data.accessToken, data.refreshToken);
-      router.replace("/home");
-    } catch (e) {
-      console.error(e);
+      await login(data.accessToken, data.refreshToken, data.rol);
+      router.replace(data.rol === "ADMIN" ? "/admin" : "/home");
+    } catch (err: any) {
+      console.error(err);
+      setServerError(err.message ?? "No se pudo iniciar sesión");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View className="flex-1 bg-blue-100 ">
-      <View className="py-6 pb-10 h-auto items-center">
-        <GraduationCap className="text-blue-900" size={90} />
-        <Text className="text-4xl font-bold mt-1 mb-4">PVGE</Text>
-        <Text className="text-sm text-gray-700 font-medium">
-          Plataforma Virtual de Gestión Educativa
-        </Text>
-      </View>
-      <View className="p-6 h-full w-full bg-blue-50 shadow-sm">
-        <View className="items-center">
-          <Text className="text-xl font-bold text-gray-950 mb-2">
-            Inicia sesión en PVGE
-          </Text>
-          <Text className="text-sm text-gray-700 mb-5">
-            Si no tienes cuenta,{" "}
-            <Pressable onPress={() => router.replace("/register")}>
-              <Text className="underline">regístrate aquí.</Text>
-            </Pressable>
+    <KeyboardAvoidingView
+      className="flex-1 bg-blue-100"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Marca */}
+        <View className="items-center pt-14 pb-10">
+          <Image
+            style={{ width: 110, height: 110 }}
+            source={require("../../assets/images/logo.png")}
+            resizeMode="contain"
+          />
+          <Text className="text-4xl font-bold text-gray-950 mt-1">Mentum</Text>
+          <Text className="text-sm text-gray-700 font-medium mt-1">
+            Cada clase, cada logro, cada paso
           </Text>
         </View>
-        <View>
-          <Text className="font-bold text-gray-950 mb-2">
+
+        {/* Formulario */}
+        <View className="flex-1 bg-white rounded-t-[32px] px-6 pt-8 pb-10">
+          <Text className="text-xl font-bold text-gray-950 text-center">
+            Inicia sesión
+          </Text>
+          <Text className="text-sm text-gray-700 text-center mt-1 mb-6">
+            ¿No tienes cuenta?{" "}
+            <Text
+              onPress={() => router.replace("/register")}
+              className="text-blue-700 font-bold"
+            >
+              Regístrate aquí
+            </Text>
+          </Text>
+
+          <Text className="font-bold text-gray-700 mb-2 text-sm">
             Correo electrónico
           </Text>
-          <View className="relative">
+          <View className={fieldClass(errors.email)}>
+            <Mail size={18} color="#9ca3af" />
             <TextInput
+              placeholder="alex.morgan@mentum.edu"
+              placeholderTextColor="#9ca3af"
               keyboardType="email-address"
-              className="w-full p-3 pl-11 bg-white border border-gray-200 rounded-xl mb-4"
-              placeholder="alex.morgan@pvge.edu"
+              autoCapitalize="none"
+              autoCorrect={false}
               value={email}
               onChangeText={setEmail}
+              className="flex-1 ml-3 text-gray-900"
             />
-            <Mail className="absolute left-3 top-1/2 -translate-y-5 text-gray-400" />
           </View>
-          <Text className="font-bold text-gray-950 mb-2">Contraseña</Text>
-          <View className="relative mb-2">
+          <FieldError msg={errors.email} />
+
+          <Text className="font-bold text-gray-700 mb-2 mt-4 text-sm">
+            Contraseña
+          </Text>
+          <View className={fieldClass(errors.password)}>
+            <Lock size={18} color="#9ca3af" />
             <TextInput
+              placeholder="Tu contraseña"
+              placeholderTextColor="#9ca3af"
               secureTextEntry={!show}
-              className="w-full p-3 pl-11 bg-white border border-gray-200 rounded-xl mb-4"
-              placeholder="*******"
+              autoCapitalize="none"
               value={password}
               onChangeText={setPassword}
+              onSubmitEditing={handleSubmit}
+              className="flex-1 ml-3 text-gray-900"
             />
-            <Lock className="absolute left-3 top-1/2 -translate-y-5 text-gray-400" />
             <Pressable
               onPress={() => setShow(!show)}
-              className="absolute right-3 top-1/2 -translate-y-5 text-gray-400"
+              accessibilityLabel={
+                show ? "Ocultar contraseña" : "Mostrar contraseña"
+              }
+              hitSlop={10}
             >
-              {show ? <EyeClosedIcon /> : <Eye />}
+              {show ? (
+                <EyeOff size={18} color="#6b7280" />
+              ) : (
+                <Eye size={18} color="#6b7280" />
+              )}
             </Pressable>
           </View>
-          <View className="mb-10 relative">
-            <Pressable
-              onPress={() => setChecked(!checked)}
-              className="flex-row gap-2"
-            >
-              <Text className="text-sm text-gray-700">
-                ¿Recordar mi contraseña?
-              </Text>
-              <View
-                className={`w-5 h-5 rounded border items-center justify-center ${
-                  checked
-                    ? "bg-blue-700 border-blue-700"
-                    : "bg-white border-gray-300"
-                }`}
-              >
-                {checked && <Check size={14} color="white" />}
-              </View>
-            </Pressable>
-            <Text className="absolute right-0 text-blue-700">
-              ¿Olvidaste la contraseña?
-            </Text>
-          </View>
-          <View className="items-center">
-            <Pressable
-              onPress={handleSubmit}
-              className="h-12 w-3/4 bg-blue-600 items-center justify-center rounded shadow-md"
-            >
-              <Text className="text-white font-bold text-xl">
-                Iniciar sesión
-              </Text>
-            </Pressable>
-          </View>
+          <FieldError msg={errors.password} />
+
+          {serverError && (
+            <View className="bg-red-50 rounded-xl px-4 py-3 mt-5">
+              <Text className="text-red-700 text-sm">{serverError}</Text>
+            </View>
+          )}
+
+          <Pressable
+            onPress={handleSubmit}
+            disabled={loading}
+            className={`h-12 items-center justify-center rounded-xl mt-6 ${
+              loading ? "bg-blue-300" : "bg-blue-600"
+            }`}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-white font-bold">Iniciar sesión</Text>
+            )}
+          </Pressable>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

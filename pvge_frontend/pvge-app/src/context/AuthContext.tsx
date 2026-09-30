@@ -1,9 +1,21 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type AuthContextType = {
   accessToken: string | null;
-  login: (accessToken: string, refreshToken: string) => Promise<void>;
+  role: string | null;
+  ready: boolean;
+  login: (
+    accessToken: string,
+    refreshToken: string,
+    role: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -11,11 +23,19 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
-  const login = async (accessToken: string, refreshToken: string) => {
+  const login = async (
+    accessToken: string,
+    refreshToken: string,
+    role: string,
+  ) => {
     await AsyncStorage.setItem("accessToken", accessToken);
     await AsyncStorage.setItem("refreshToken", refreshToken);
+    await AsyncStorage.setItem("role", role);
     setAccessToken(accessToken);
+    setRole(role);
   };
 
   const logout = async () => {
@@ -31,11 +51,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     await AsyncStorage.removeItem("accessToken");
     await AsyncStorage.removeItem("refreshToken");
+    await AsyncStorage.removeItem("role");
+    setRole(null);
     setAccessToken(null);
   };
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const [t, r] = await Promise.all([
+          AsyncStorage.getItem("accessToken"),
+          AsyncStorage.getItem("role"),
+        ]);
+        if (t) setAccessToken(t);
+        if (r) setRole(r);
+      } finally {
+        setReady(true);
+      }
+    })();
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ accessToken, login, logout }}>
+    <AuthContext.Provider value={{ accessToken, role, ready, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
