@@ -1,7 +1,6 @@
 package com.example.pvge.model;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,7 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,27 +20,27 @@ import lombok.Setter;
 @Getter 
 @Setter 
 @Builder 
-@Table(name = "contenidos")
+@Table(name = "recursos")
 @NoArgsConstructor 
 @AllArgsConstructor 
-public class Contenido {
+public class Recurso {
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private int id;
 
-    @Column(name = "titulo")
-    private String titulo;
+    @Column(name = "nombre")
+    private String nombre;
 
-    @Column(name = "descripcion")
-    private String descripcion;
+    @Column(name = "tipo")
+    private String tipo;
 
-    @Column(name = "fecha_creacion")
-    private LocalDateTime fechaCreacion;
+    @Column(name = "url")
+    private String url;
+
+    @Column(name = "fecha_subida")
+    private LocalDateTime fechaSubida;
 
     @ManyToOne 
-    @JoinColumn(name = "curso_id")
-    private Curso curso;
-
-    @OneToMany(mappedBy = "contenido")
-    private List<Recurso> recursos;
+    @JoinColumn(name = "contenido_id", nullable = false)
+    private Contenido contenido;
 }
