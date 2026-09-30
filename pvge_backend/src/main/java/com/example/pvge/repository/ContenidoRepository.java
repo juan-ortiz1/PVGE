@@ -9,5 +9,5 @@ import com.example.pvge.model.Contenido;
 
 public interface ContenidoRepository extends JpaRepository<Contenido, Integer> {
     Optional<Contenido> findById(Integer id);
-    List<Contenido> findByCursoId(Integer cursoId);
+    List<Contenido> findByCursoIdOrderByOrdenAscIdAsc(Integer cursoId);
 }

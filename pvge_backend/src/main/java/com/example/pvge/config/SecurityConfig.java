@@ -50,6 +50,8 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.POST, "/api/instructores").hasAuthority("ADMIN")
                                 .requestMatchers(HttpMethod.POST, "/api/cursos").hasAuthority("INSTRUCTOR")
                                 .requestMatchers(HttpMethod.POST, "/api/contenidos").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.PUT, "/api/contenidos/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.DELETE, "/api/contenidos/**").hasAuthority("INSTRUCTOR")
                                 .requestMatchers(HttpMethod.POST, "/api/tareas").hasAuthority("INSTRUCTOR")
                                 .requestMatchers(HttpMethod.PUT, "/api/cursos/**").hasAuthority("INSTRUCTOR")
                                 .requestMatchers("/api/admin/**")

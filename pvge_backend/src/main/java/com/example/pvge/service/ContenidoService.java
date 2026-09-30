@@ -1,6 +1,7 @@
 package com.example.pvge.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.security.core.Authentication;
@@ -44,17 +45,58 @@ public class ContenidoService {
                 if (Boolean.FALSE.equals(curso.getActivo())) {
                         throw new RuntimeException("El curso no está activo");
                 }
-                if (!curso.getInstructor().getId().equals(instructor.getId())) {
-                        throw new RuntimeException("No puedes crear contenido en un curso que no es tuyo");
-                }
+                validarPropietario(instructor.getId(), curso, "No puedes crear contenido en un curso que no es tuyo");
                 Contenido contenido = Contenido.builder()
                                 .titulo(request.getTitulo())
                                 .descripcion(request.getDescripcion())
                                 .fechaCreacion(LocalDateTime.now())
                                 .curso(curso)
                                 .build();
-                contenidoRepository.save(contenido);
+                List<Contenido> contenidos = findContenidosOrdenados(curso.getId());
+                int posicion = request.getOrden() != null ? request.getOrden() : contenidos.size() + 1;
+                contenidos.add(limitarPosicion(posicion, contenidos.size() + 1) - 1, contenido);
+                renumerar(contenidos);
+                contenidoRepository.saveAll(contenidos);
                 return contenidoMapper.toResponse(contenido);
+        }
+
+        @Transactional
+        public ContenidoResponse actualizarContenido(Integer id, ContenidoRequest request, Authentication authentication) {
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
+                Instructor instructor = findInstructorByUsuarioId(usuario.getId());
+                Contenido contenido = findContenidoById(id);
+                validarPropietario(instructor.getId(), contenido.getCurso(), "No puedes editar contenido de un curso que no es tuyo");
+                if (request.getTitulo() != null && !request.getTitulo().isBlank()) {
+                        contenido.setTitulo(request.getTitulo());
+                }
+                if (request.getDescripcion() != null && !request.getDescripcion().isBlank()) {
+                        contenido.setDescripcion(request.getDescripcion());
+                }
+                if (request.getOrden() != null) {
+                        List<Contenido> contenidos = findContenidosOrdenados(contenido.getCurso().getId());
+                        contenidos.removeIf(c -> c.getId().equals(contenido.getId()));
+                        contenidos.add(limitarPosicion(request.getOrden(), contenidos.size() + 1) - 1, contenido);
+                        renumerar(contenidos);
+                        contenidoRepository.saveAll(contenidos);
+                } else {
+                        contenidoRepository.save(contenido);
+                }
+                return contenidoMapper.toResponse(contenido);
+        }
+
+        @Transactional
+        public String eliminarContenido(Integer id, Authentication authentication) {
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
+                Instructor instructor = findInstructorByUsuarioId(usuario.getId());
+                Contenido contenido = findContenidoById(id);
+                Curso curso = contenido.getCurso();
+                validarPropietario(instructor.getId(), curso, "No puedes eliminar contenido de un curso que no es tuyo");
+                List<Contenido> restantes = findContenidosOrdenados(curso.getId());
+                restantes.removeIf(c -> c.getId().equals(contenido.getId()));
+                contenidoRepository.delete(contenido);
+                renumerar(restantes);
+                contenidoRepository.saveAll(restantes);
+                return "Contenido eliminado exitosamente";
         }
 
         public ContenidoResponse getContenidoById(Integer id, Authentication authentication) {
@@ -96,11 +138,31 @@ public class ContenidoService {
                                 throw new RuntimeException("No puedes ver contenidos de un curso que no es tuyo.");
                         }
                 }
-                List<Contenido> contenidos = contenidoRepository.findByCursoId(cursoId);
+                List<Contenido> contenidos = contenidoRepository.findByCursoIdOrderByOrdenAscIdAsc(cursoId);
                 return contenidos.stream().map(contenidoMapper::toResponse).toList();
         }
         private boolean esPropietarioCurso(Integer instructorId, Curso curso){
                 return curso.getInstructor().getId().equals(instructorId);
+        }
+        private void validarPropietario(Integer instructorId, Curso curso, String mensaje) {
+                if (!esPropietarioCurso(instructorId, curso)) {
+                        throw new RuntimeException(mensaje);
+                }
+        }
+        private List<Contenido> findContenidosOrdenados(Integer cursoId) {
+                return new ArrayList<>(contenidoRepository.findByCursoIdOrderByOrdenAscIdAsc(cursoId));
+        }
+        private int limitarPosicion(int posicion, int maximo) {
+                return Math.max(1, Math.min(posicion, maximo));
+        }
+        private void renumerar(List<Contenido> contenidos) {
+                for (int i = 0; i < contenidos.size(); i++) {
+                        contenidos.get(i).setOrden(i + 1);
+                }
+        }
+        private Contenido findContenidoById(Integer id) {
+                return contenidoRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Contenido no encontrado"));
         }
         private boolean existsByEstudianteIdAndCursoId(Integer estudianteId, Integer cursoId){
                 return inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudianteId, cursoId);

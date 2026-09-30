@@ -37,6 +37,9 @@ public class Contenido {
     @Column(name = "fecha_creacion")
     private LocalDateTime fechaCreacion;
 
+    @Column(name = "orden")
+    private Integer orden;
+
     @ManyToOne 
     @JoinColumn(name = "curso_id")
     private Curso curso;

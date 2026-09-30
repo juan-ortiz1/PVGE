@@ -15,4 +15,5 @@ public class ContenidoResponse {
     private String descripcion;
     private LocalDateTime fechaCreacion;
     private Integer cursoId;
+    private Integer orden;
 }

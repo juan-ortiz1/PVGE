@@ -18,6 +18,7 @@ public class ContenidoRequest {
     private String titulo;
     @NotBlank 
     private String descripcion;
-    @NotNull 
+    @NotNull
     private Integer cursoId;
+    private Integer orden;
 }

@@ -14,6 +14,7 @@ public class ContenidoMapper {
         .descripcion(contenido.getDescripcion())
         .fechaCreacion(contenido.getFechaCreacion())
         .cursoId(contenido.getCurso().getId())
+        .orden(contenido.getOrden())
         .build();
     }
 }
