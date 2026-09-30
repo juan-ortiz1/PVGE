@@ -54,6 +54,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.DELETE, "/api/contenidos/**").hasAuthority("INSTRUCTOR")
                                 .requestMatchers(HttpMethod.POST, "/api/tareas").hasAuthority("INSTRUCTOR")
                                 .requestMatchers(HttpMethod.PUT, "/api/cursos/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.DELETE, "/api/cursos/inscribir/**").hasAuthority("ESTUDIANTE")
                                 .requestMatchers("/api/admin/**")
                                 .hasAuthority("ADMIN").anyRequest().authenticated())
                 .sessionManagement(

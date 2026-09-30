@@ -13,6 +13,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -58,6 +59,11 @@ public class CursoController {
     @PostMapping("/inscribir/{id}")
     public ResponseEntity<String> inscribirCurso(@PathVariable Integer id, Authentication authentication) {
         return ResponseEntity.ok(cursoService.inscribirCurso(id, authentication));
+    }
+
+    @DeleteMapping("/inscribir/{id}")
+    public ResponseEntity<String> desinscribirCurso(@PathVariable Integer id, Authentication authentication) {
+        return ResponseEntity.ok(cursoService.desinscribirCurso(id, authentication));
     }
     
     

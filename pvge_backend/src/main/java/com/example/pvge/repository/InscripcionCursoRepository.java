@@ -12,4 +12,5 @@ public interface InscripcionCursoRepository extends JpaRepository<InscripcionCur
     Optional<InscripcionCurso> findById(Integer id);
     Boolean existsByEstudianteIdAndCursoId(Integer estudianteId, Integer cursoId);
     List<InscripcionCurso> findByEstudianteId(Integer estudianteId);
+    Optional<InscripcionCurso> findByEstudianteIdAndCursoId(Integer estudianteId, Integer cursoId);
 }

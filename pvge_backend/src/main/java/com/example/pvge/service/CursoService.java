@@ -165,6 +165,20 @@ public class CursoService {
         }
 
         @Transactional
+        public String desinscribirCurso(Integer idCurso, Authentication authentication) {
+                String correo = authentication.getName();
+                Usuario usuario = usuarioRepository.findByCorreo(correo)
+                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+                Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+                InscripcionCurso inscripcion = inscripcionCursoRepository
+                                .findByEstudianteIdAndCursoId(estudiante.getId(), idCurso)
+                                .orElseThrow(() -> new RuntimeException("No estás inscrito en este curso."));
+                inscripcionCursoRepository.delete(inscripcion);
+                return "Te has desinscrito del curso.";
+        }
+
+        @Transactional
         public String eliminarCurso(Integer id) {
                 Curso curso = cursoRepository.findById(id)
                                 .orElseThrow(() -> new RuntimeException("Curso no encontrado"));
