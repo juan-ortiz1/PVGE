@@ -4,8 +4,6 @@ import java.util.List;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import com.example.pvge.dto.curso.CursoResponse;
 import com.example.pvge.dto.usuario.UsuarioResponse;
 import com.example.pvge.mapper.UsuarioMapper;
 import com.example.pvge.model.Curso;

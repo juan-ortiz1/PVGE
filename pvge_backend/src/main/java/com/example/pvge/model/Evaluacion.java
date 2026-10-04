@@ -1,5 +1,6 @@
 package com.example.pvge.model;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.Entity;
@@ -42,5 +43,6 @@ public class Evaluacion {
     private Curso curso;
 
     @OneToMany(mappedBy = "evaluacion")
-    private List<Pregunta> preguntas;
+    @Builder.Default
+    private List<Pregunta> preguntas = new ArrayList<>();
 }

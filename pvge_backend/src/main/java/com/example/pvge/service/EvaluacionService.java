@@ -4,9 +4,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.pvge.dto.OpcionRequest;
 import com.example.pvge.dto.evaluacion.EvaluacionRequest;
+import com.example.pvge.dto.evaluacion.EvaluacionResponse;
+import com.example.pvge.dto.opcion.OpcionRequest;
 import com.example.pvge.dto.pregunta.PreguntaRequest;
+import com.example.pvge.mapper.EvaluacionMapper;
 import com.example.pvge.model.Curso;
 import com.example.pvge.model.Evaluacion;
 import com.example.pvge.model.Instructor;
@@ -30,12 +32,13 @@ public class EvaluacionService {
     private final CursoRepository cursoRepository;
     private final PreguntaRepository preguntaRepository;
     private final OpcionRepository opcionRepository;
+    private final EvaluacionMapper evaluacionMapper;
 
     private final UsuarioRepository usuarioRepository;
     private final InstructorRepository instructorRepository;
 
     @Transactional
-    public Evaluacion crearEvaluacion(
+    public EvaluacionResponse crearEvaluacion(
             EvaluacionRequest request,
             Authentication authentication) {
         Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
@@ -63,6 +66,7 @@ public class EvaluacionService {
                     .evaluacion(evaluacion)
                     .build();
             preguntaRepository.save(pregunta);
+            evaluacion.getPreguntas().add(pregunta);
             for (OpcionRequest opcionRequest : preguntaRequest.getOpciones()) {
                 Opcion opcion = Opcion.builder()
                         .texto(opcionRequest.getTexto())
@@ -70,8 +74,9 @@ public class EvaluacionService {
                         .pregunta(pregunta)
                         .build();
                 opcionRepository.save(opcion);
+                pregunta.getOpciones().add(opcion);
             }
         }
-        return evaluacion;
+        return evaluacionMapper.toResponse(evaluacion);
     }
 }

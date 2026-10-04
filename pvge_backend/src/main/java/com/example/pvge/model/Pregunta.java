@@ -1,5 +1,6 @@
 package com.example.pvge.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.Entity;
@@ -38,5 +39,6 @@ public class Pregunta {
     private Evaluacion evaluacion;
 
     @OneToMany(mappedBy = "pregunta")
-    private List<Opcion> opciones;
+    @Builder.Default
+    private List<Opcion> opciones = new ArrayList<>();
 }

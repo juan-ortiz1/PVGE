@@ -1,4 +1,4 @@
-package com.example.pvge.dto;
+package com.example.pvge.dto.opcion;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
