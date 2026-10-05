@@ -24,5 +24,6 @@ public class EvaluacionResponse {
     private LocalDateTime fechaPublicacion;
     private LocalDateTime fechaVencimiento;
     private CursoResponse cursoResponse;
+    private Integer puntajeTotal;
     private List<PreguntaResponse> preguntas;
 }
