@@ -9,15 +9,19 @@ import com.example.pvge.service.EvaluacionService;
 
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 
-@RestController 
+@RestController
 @RequestMapping("/api/evaluaciones")
-@RequiredArgsConstructor 
+@RequiredArgsConstructor
 public class EvaluacionController {
 
     private final EvaluacionService evaluacionService;
@@ -25,5 +29,15 @@ public class EvaluacionController {
     @PostMapping
     public ResponseEntity<EvaluacionResponse> crearEvaluacion(@RequestBody EvaluacionRequest request, Authentication authentication) {
         return ResponseEntity.ok(evaluacionService.crearEvaluacion(request, authentication));
+    }
+
+    @GetMapping("/curso/{cursoId}")
+    public ResponseEntity<List<EvaluacionResponse>> listarEvaluacionesPorCurso(@PathVariable Integer cursoId, Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.listarEvaluacionesPorCurso(cursoId, authentication));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<EvaluacionResponse> obtenerEvaluacion(@PathVariable Integer id, Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.obtenerEvaluacion(id, authentication));
     }
 }
