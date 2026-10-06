@@ -5,6 +5,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.pvge.dto.evaluacion.EvaluacionRequest;
 import com.example.pvge.dto.evaluacion.EvaluacionResponse;
+import com.example.pvge.dto.intento.ResponderEvaluacionRequest;
+import com.example.pvge.dto.intento.ResultadoEvaluacionResponse;
 import com.example.pvge.service.EvaluacionService;
 
 import lombok.RequiredArgsConstructor;
@@ -39,5 +41,10 @@ public class EvaluacionController {
     @GetMapping("/{id}")
     public ResponseEntity<EvaluacionResponse> obtenerEvaluacion(@PathVariable Integer id, Authentication authentication) {
         return ResponseEntity.ok(evaluacionService.obtenerEvaluacion(id, authentication));
+    }
+
+    @PostMapping("/{id}/responder")
+    public ResponseEntity<ResultadoEvaluacionResponse> responderEvaluacion(@PathVariable Integer id, @RequestBody ResponderEvaluacionRequest request, Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.responderEvaluacion(id, request, authentication));
     }
 }

@@ -1,7 +1,9 @@
 package com.example.pvge.service;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -9,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.pvge.dto.evaluacion.EvaluacionRequest;
 import com.example.pvge.dto.evaluacion.EvaluacionResponse;
+import com.example.pvge.dto.intento.ResponderEvaluacionRequest;
+import com.example.pvge.dto.intento.RespuestaRequest;
+import com.example.pvge.dto.intento.ResultadoEvaluacionResponse;
 import com.example.pvge.dto.opcion.OpcionRequest;
 import com.example.pvge.dto.pregunta.PreguntaRequest;
 import com.example.pvge.mapper.EvaluacionMapper;
@@ -16,16 +21,20 @@ import com.example.pvge.model.Curso;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Evaluacion;
 import com.example.pvge.model.Instructor;
+import com.example.pvge.model.IntentoEvaluacion;
 import com.example.pvge.model.Opcion;
 import com.example.pvge.model.Pregunta;
+import com.example.pvge.model.RespuestaEstudiante;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.CursoRepository;
 import com.example.pvge.repository.EstudianteRepository;
 import com.example.pvge.repository.EvaluacionRepository;
 import com.example.pvge.repository.InscripcionCursoRepository;
 import com.example.pvge.repository.InstructorRepository;
+import com.example.pvge.repository.IntentoEvaluacionRepository;
 import com.example.pvge.repository.OpcionRepository;
 import com.example.pvge.repository.PreguntaRepository;
+import com.example.pvge.repository.RespuestaEstudianteRepository;
 import com.example.pvge.repository.UsuarioRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -44,6 +53,8 @@ public class EvaluacionService {
         private final InstructorRepository instructorRepository;
         private final EstudianteRepository estudianteRepository;
         private final InscripcionCursoRepository inscripcionCursoRepository;
+        private final IntentoEvaluacionRepository intentoEvaluacionRepository;
+        private final RespuestaEstudianteRepository respuestaEstudianteRepository;
 
         @Transactional
         public EvaluacionResponse crearEvaluacion(
@@ -119,6 +130,79 @@ public class EvaluacionService {
                         throw new RuntimeException("Evaluación no disponible");
                 }
                 return evaluacionMapper.toResponse(evaluacion);
+        }
+
+        @Transactional
+        public ResultadoEvaluacionResponse responderEvaluacion(
+                        Integer id,
+                        ResponderEvaluacionRequest request,
+                        Authentication authentication) {
+                Estudiante estudiante = obtenerEstudiante(authentication);
+                Evaluacion evaluacion = evaluacionRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Evaluación no encontrada"));
+                if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(
+                                estudiante.getId(), evaluacion.getCurso().getId())) {
+                        throw new RuntimeException("No estás inscrito en este curso");
+                }
+                if (!estaPublicada(evaluacion)) {
+                        throw new RuntimeException("Evaluación no disponible");
+                }
+                if (estaVencida(evaluacion)) {
+                        throw new RuntimeException("La evaluación ya venció");
+                }
+                if (intentoEvaluacionRepository.existsByEstudianteIdAndEvaluacionId(
+                                estudiante.getId(), evaluacion.getId())) {
+                        throw new RuntimeException("Ya respondiste esta evaluación");
+                }
+                if (request.getRespuestas() == null || request.getRespuestas().isEmpty()) {
+                        throw new RuntimeException("Debes enviar al menos una respuesta");
+                }
+                IntentoEvaluacion intento = IntentoEvaluacion.builder()
+                                .fechaEnvio(LocalDateTime.now())
+                                .puntajeObtenido(0)
+                                .puntajeTotal(calcularPuntajeTotal(evaluacion))
+                                .estudiante(estudiante)
+                                .evaluacion(evaluacion)
+                                .build();
+                intentoEvaluacionRepository.save(intento);
+                int puntajeObtenido = 0;
+                Set<Integer> preguntasRespondidas = new HashSet<>();
+                for (RespuestaRequest respuestaRequest : request.getRespuestas()) {
+                        if (!preguntasRespondidas.add(respuestaRequest.getPreguntaId())) {
+                                throw new RuntimeException("No puedes responder la misma pregunta dos veces");
+                        }
+                        Pregunta pregunta = preguntaRepository.findById(respuestaRequest.getPreguntaId())
+                                        .orElseThrow(() -> new RuntimeException("Pregunta no encontrada"));
+                        if (!pregunta.getEvaluacion().getId().equals(evaluacion.getId())) {
+                                throw new RuntimeException("La pregunta no pertenece a esta evaluación");
+                        }
+                        Opcion opcion = opcionRepository.findById(respuestaRequest.getOpcionId())
+                                        .orElseThrow(() -> new RuntimeException("Opción no encontrada"));
+                        if (!opcion.getPregunta().getId().equals(pregunta.getId())) {
+                                throw new RuntimeException("La opción no pertenece a la pregunta");
+                        }
+                        boolean correcta = Boolean.TRUE.equals(opcion.getCorrecta());
+                        if (correcta && pregunta.getPuntaje() != null) {
+                                puntajeObtenido += pregunta.getPuntaje();
+                        }
+                        RespuestaEstudiante respuesta = RespuestaEstudiante.builder()
+                                        .correcta(correcta)
+                                        .intento(intento)
+                                        .pregunta(pregunta)
+                                        .opcionSeleccionada(opcion)
+                                        .build();
+                        respuestaEstudianteRepository.save(respuesta);
+                        intento.getRespuestas().add(respuesta);
+                }
+                intento.setPuntajeObtenido(puntajeObtenido);
+                intentoEvaluacionRepository.save(intento);
+                return ResultadoEvaluacionResponse.builder()
+                                .intentoId(intento.getId())
+                                .evaluacionId(evaluacion.getId())
+                                .puntajeObtenido(intento.getPuntajeObtenido())
+                                .puntajeTotal(intento.getPuntajeTotal())
+                                .fechaEnvio(intento.getFechaEnvio())
+                                .build();
         }
 
         private Estudiante obtenerEstudiante(Authentication authentication) {
