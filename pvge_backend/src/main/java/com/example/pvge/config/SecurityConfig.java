@@ -2,6 +2,7 @@ package com.example.pvge.config;
 
 import java.util.List;
 
+import org.springframework.boot.micrometer.observation.autoconfigure.ObservationProperties.Http;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -46,6 +47,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(
                         authRequest -> authRequest
                                 .requestMatchers(HttpMethod.POST, "/api/estudiantes").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/evaluaciones/**").permitAll()
                                 .requestMatchers("/api/auth/**").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/instructores").hasAuthority("ADMIN")
                                 .requestMatchers(HttpMethod.POST, "/api/cursos").hasAuthority("INSTRUCTOR")
