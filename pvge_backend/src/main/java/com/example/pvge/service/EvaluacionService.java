@@ -57,9 +57,7 @@ public class EvaluacionService {
         private final RespuestaEstudianteRepository respuestaEstudianteRepository;
 
         @Transactional
-        public EvaluacionResponse crearEvaluacion(
-                        EvaluacionRequest request,
-                        Authentication authentication) {
+        public EvaluacionResponse crearEvaluacion(EvaluacionRequest request, Authentication authentication) {
                 Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
                                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
                 Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())

@@ -5,22 +5,27 @@ import java.util.List;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.example.pvge.dto.tarea.EntregaTareaResponse;
 import com.example.pvge.dto.tarea.TareaRequest;
 import com.example.pvge.dto.tarea.TareaResponse;
 import com.example.pvge.mapper.TareaMapper;
 import com.example.pvge.model.Curso;
+import com.example.pvge.model.EntregaTarea;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
 import com.example.pvge.model.Tarea;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.CursoRepository;
+import com.example.pvge.repository.EntregaTareaRepository;
 import com.example.pvge.repository.EstudianteRepository;
 import com.example.pvge.repository.InscripcionCursoRepository;
 import com.example.pvge.repository.InstructorRepository;
 import com.example.pvge.repository.TareaRepository;
 import com.example.pvge.repository.UsuarioRepository;
+import com.example.pvge.storage.FileStorageService;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +38,8 @@ public class TareaService {
         private final InstructorRepository instructorRepository;
         private final EstudianteRepository estudianteRepository;
         private final CursoRepository cursoRepository;
+        private final EntregaTareaRepository entregaTareaRepository;
+        private final FileStorageService fileStorageService;
         private final TareaMapper tareaMapper;
         private final InscripcionCursoRepository inscripcionCursoRepository;
 
@@ -78,11 +85,69 @@ public class TareaService {
                 return tareas.stream().map(tareaMapper::toResponse).toList();
         }
 
+        @Transactional
+        public EntregaTareaResponse entregarTarea(Integer tareaId, MultipartFile archivo,
+                        Authentication authentication) {
+                if (archivo == null || archivo.isEmpty()) {
+                        throw new RuntimeException("Debes adjuntar un archivo");
+                }
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
+                if (usuario.getRol() != Rol.ESTUDIANTE) {
+                        throw new RuntimeException("Solo los estudiantes pueden entregar tareas.");
+                }
+                Tarea tarea = tareaRepository.findById(tareaId)
+                                .orElseThrow(() -> new RuntimeException("Tarea no encontrada"));
+                Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
+                if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),
+                                tarea.getCurso().getId())) {
+                        throw new RuntimeException("No estás inscrito en este curso");
+                }
+                if (tarea.getFechaEntrega() != null && LocalDateTime.now().isAfter(tarea.getFechaEntrega())) {
+                        throw new RuntimeException("La fecha límite de entrega ya pasó");
+                }
+                var existente = entregaTareaRepository.findByTareaIdAndEstudianteId(tareaId, estudiante.getId());
+                String nombreArchivo = archivo.getOriginalFilename();
+                if (nombreArchivo == null || nombreArchivo.isBlank()) {
+                        nombreArchivo = "archivo";
+                }
+                nombreArchivo = nombreArchivo.replace("\\", "/");
+                nombreArchivo = nombreArchivo.substring(nombreArchivo.lastIndexOf("/") + 1);
+
+                String urlNueva = fileStorageService.upload(archivo, "entregas");
+                
+                EntregaTarea entrega = existente.orElseGet(() -> EntregaTarea.builder()
+                                .tarea(tarea).estudiante(estudiante)
+                                .build());
+                String urlAnterior = entrega.getUrlArchivo();
+                entrega.setNombreArchivo(nombreArchivo);
+                entrega.setUrlArchivo(urlNueva);
+                entrega.setTipoContenido(archivo.getContentType());
+                entrega.setFechaEntrega(LocalDateTime.now());
+                EntregaTarea guardada = entregaTareaRepository.save(entrega);
+                if (urlAnterior != null && !urlAnterior.equals(urlNueva)) {
+                        try {
+                                fileStorageService.delete(urlAnterior);
+                        } catch (RuntimeException e) {
+                                e.printStackTrace();
+                        }
+                }
+                return EntregaTareaResponse.builder()
+                                .id(guardada.getId())
+                                .tareaId(tarea.getId())
+                                .nombreArchivo(guardada.getNombreArchivo())
+                                .urlArchivo(guardada.getUrlArchivo())
+                                .tipoContenido(guardada.getTipoContenido())
+                                .fechaEntrega(guardada.getFechaEntrega())
+                                .build();
+        }
+
         private void validarAccesoCurso(Usuario usuario, Curso curso) {
                 if (usuario.getRol() == Rol.ESTUDIANTE) {
                         Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
-                        if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(), curso.getId())) {
-                                throw new RuntimeException("El estudiante no puede ver tareas de un curso al que no está inscrito");
+                        if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(),
+                                        curso.getId())) {
+                                throw new RuntimeException(
+                                                "El estudiante no puede ver tareas de un curso al que no está inscrito");
                         }
                 }
                 if (usuario.getRol() == Rol.INSTRUCTOR) {
@@ -116,4 +181,5 @@ public class TareaService {
                 return cursoRepository.findById(cursoId)
                                 .orElseThrow(() -> new RuntimeException("Curso no encontrado"));
         }
+
 }

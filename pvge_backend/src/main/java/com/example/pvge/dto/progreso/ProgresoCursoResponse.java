@@ -14,6 +14,8 @@ import lombok.Setter;
 public class ProgresoCursoResponse {
     private Integer cursoId;
     private String cursoTitulo;
+    private Integer tareasTotales;
+    private Integer tareasCompletadas;
     private Integer evaluacionesTotales;
     private Integer evaluacionesCompletadas;
     private Integer evaluacionesPendientes;

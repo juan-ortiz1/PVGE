@@ -27,11 +27,17 @@ public class SupabaseFileStorageService implements FileStorageService {
                 .baseUrl(supabaseUrl)
                 .build();
     }
+
+    @Override 
+    public String upload(MultipartFile archivo){
+        return upload(archivo, "recursos");
+    }
+
     @Override
-    public String upload(MultipartFile archivo) {
+    public String upload(MultipartFile archivo, String carpeta) {
         try {
             String nombreArchivo = UUID.randomUUID() + "_" + archivo.getOriginalFilename();
-            String path = "recursos/" + nombreArchivo;
+            String path = carpeta + "/" + nombreArchivo;
             restClient.post()
                     .uri("/storage/v1/object/{bucket}/{path}", bucket, path)
                     .header("Authorization", "Bearer " + supabaseKey)
@@ -60,11 +66,11 @@ public class SupabaseFileStorageService implements FileStorageService {
             String prefix = supabaseUrl + "/storage/v1/object/public/" + bucket + "/";
             String path = url.substring(prefix.length());
             restClient.delete()
-                .uri("/storage/v1/object/{bucket}/{path}", bucket, path)
-                .header("Authorization", "Bearer " + supabaseKey)
-                .header("apikey", supabaseKey)
-                .retrieve()
-                .toBodilessEntity();
+                    .uri("/storage/v1/object/{bucket}/{path}", bucket, path)
+                    .header("Authorization", "Bearer " + supabaseKey)
+                    .header("apikey", supabaseKey)
+                    .retrieve()
+                    .toBodilessEntity();
         } catch (Exception e) {
             throw new RuntimeException("No se pudo eliminar el archivo", e);
         }
