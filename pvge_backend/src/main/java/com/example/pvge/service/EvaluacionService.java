@@ -25,6 +25,7 @@ import com.example.pvge.model.IntentoEvaluacion;
 import com.example.pvge.model.Opcion;
 import com.example.pvge.model.Pregunta;
 import com.example.pvge.model.RespuestaEstudiante;
+import com.example.pvge.model.Rol;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.CursoRepository;
 import com.example.pvge.repository.EstudianteRepository;
@@ -58,10 +59,8 @@ public class EvaluacionService {
 
         @Transactional
         public EvaluacionResponse crearEvaluacion(EvaluacionRequest request, Authentication authentication) {
-                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
-                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-                Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
-                                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+                Usuario usuario = obtenerUsuarioByCorreo(authentication);
+                Instructor instructor = obtenerInstructor(usuario);
                 Curso curso = cursoRepository.findById(request.getCursoId())
                                 .orElseThrow(() -> new RuntimeException("Curso no encontrado"));
                 if (!curso.getInstructor().getId().equals(instructor.getId())) {
@@ -100,12 +99,19 @@ public class EvaluacionService {
         }
 
         @Transactional(readOnly = true)
-        public List<EvaluacionResponse> listarEvaluacionesPorCurso(
-                        Integer cursoId,
-                        Authentication authentication) {
-                Estudiante estudiante = obtenerEstudiante(authentication);
-                if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(), cursoId)) {
-                        throw new RuntimeException("No estás inscrito en este curso");
+        public List<EvaluacionResponse> listarEvaluacionesPorCurso(Integer cursoId, Authentication authentication) {
+                Usuario usuario = obtenerUsuarioByCorreo(authentication);
+                if (usuario.getRol() == Rol.ESTUDIANTE) {
+                        Estudiante estudiante = obtenerEstudiante(usuario);
+                        if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(), cursoId)) {
+                                throw new RuntimeException("No estás inscrito en este curso");
+                        }
+                } else if (usuario.getRol() == Rol.INSTRUCTOR) {
+                        Instructor instructor = obtenerInstructor(usuario);
+                        Curso curso = cursoRepository.findById(cursoId).orElseThrow(() -> new RuntimeException("Curso no encontrado"));
+                        if (!curso.getInstructor().getId().equals(instructor.getId())) {
+                                throw new RuntimeException("No puedes listar evaluaciones en un curso que no es tuyo.");
+                        }
                 }
                 return evaluacionRepository.findByCursoId(cursoId).stream()
                                 .filter(this::estaPublicada)
@@ -114,15 +120,20 @@ public class EvaluacionService {
         }
 
         @Transactional(readOnly = true)
-        public EvaluacionResponse obtenerEvaluacion(
-                        Integer id,
-                        Authentication authentication) {
-                Estudiante estudiante = obtenerEstudiante(authentication);
+        public EvaluacionResponse obtenerEvaluacion(Integer id, Authentication authentication) {
+                Usuario usuario = obtenerUsuarioByCorreo(authentication);
                 Evaluacion evaluacion = evaluacionRepository.findById(id)
                                 .orElseThrow(() -> new RuntimeException("Evaluación no encontrada"));
-                if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(
-                                estudiante.getId(), evaluacion.getCurso().getId())) {
-                        throw new RuntimeException("No estás inscrito en este curso");
+                if (usuario.getRol() == Rol.ESTUDIANTE) {
+                        Estudiante estudiante = obtenerEstudiante(usuario);
+                        if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(), evaluacion.getCurso().getId())) {
+                                throw new RuntimeException("No estás inscrito en este curso");
+                        }
+                } else if (usuario.getRol() == Rol.INSTRUCTOR) {
+                        Instructor instructor = obtenerInstructor(usuario);
+                        if (!evaluacion.getCurso().getInstructor().getId().equals(instructor.getId())) {
+                                throw new RuntimeException("No puedes listar evaluaciones por id en un curso que no es tuyo.");
+                        }
                 }
                 if (!estaPublicada(evaluacion)) {
                         throw new RuntimeException("Evaluación no disponible");
@@ -135,7 +146,8 @@ public class EvaluacionService {
                         Integer id,
                         ResponderEvaluacionRequest request,
                         Authentication authentication) {
-                Estudiante estudiante = obtenerEstudiante(authentication);
+                Usuario usuario = obtenerUsuarioByCorreo(authentication);
+                Estudiante estudiante = obtenerEstudiante(usuario);
                 Evaluacion evaluacion = evaluacionRepository.findById(id)
                                 .orElseThrow(() -> new RuntimeException("Evaluación no encontrada"));
                 if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(
@@ -203,11 +215,19 @@ public class EvaluacionService {
                                 .build();
         }
 
-        private Estudiante obtenerEstudiante(Authentication authentication) {
-                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
+        private Usuario obtenerUsuarioByCorreo(Authentication authentication) {
+                return usuarioRepository.findByCorreo(authentication.getName())
                                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        }
+
+        private Estudiante obtenerEstudiante(Usuario usuario) {
                 return estudianteRepository.findByUsuarioId(usuario.getId())
                                 .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+        }
+
+        private Instructor obtenerInstructor(Usuario usuario) {
+                return instructorRepository.findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
         }
 
         private boolean estaPublicada(Evaluacion evaluacion) {
