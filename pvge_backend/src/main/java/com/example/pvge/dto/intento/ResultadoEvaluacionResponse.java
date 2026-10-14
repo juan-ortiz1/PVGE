@@ -2,6 +2,8 @@ package com.example.pvge.dto.intento;
 
 import java.time.LocalDateTime;
 
+import com.example.pvge.model.EstadoEvaluacion;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,5 +20,6 @@ public class ResultadoEvaluacionResponse {
     private Integer evaluacionId;
     private Integer puntajeObtenido;
     private Integer puntajeTotal;
+    private EstadoEvaluacion estado;
     private LocalDateTime fechaEnvio;
 }

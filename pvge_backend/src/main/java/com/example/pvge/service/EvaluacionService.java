@@ -1,10 +1,13 @@
 package com.example.pvge.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +21,7 @@ import com.example.pvge.dto.opcion.OpcionRequest;
 import com.example.pvge.dto.pregunta.PreguntaRequest;
 import com.example.pvge.mapper.EvaluacionMapper;
 import com.example.pvge.model.Curso;
+import com.example.pvge.model.EstadoEvaluacion;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Evaluacion;
 import com.example.pvge.model.Instructor;
@@ -56,6 +60,9 @@ public class EvaluacionService {
         private final InscripcionCursoRepository inscripcionCursoRepository;
         private final IntentoEvaluacionRepository intentoEvaluacionRepository;
         private final RespuestaEstudianteRepository respuestaEstudianteRepository;
+
+        @Value("${evaluacion.porcentaje-aprobacion:60}")
+        private int porcentajeAprobacion;
 
         @Transactional
         public EvaluacionResponse crearEvaluacion(EvaluacionRequest request, Authentication authentication) {
@@ -101,8 +108,9 @@ public class EvaluacionService {
         @Transactional(readOnly = true)
         public List<EvaluacionResponse> listarEvaluacionesPorCurso(Integer cursoId, Authentication authentication) {
                 Usuario usuario = obtenerUsuarioByCorreo(authentication);
+                Estudiante estudiante = null;
                 if (usuario.getRol() == Rol.ESTUDIANTE) {
-                        Estudiante estudiante = obtenerEstudiante(usuario);
+                        estudiante = obtenerEstudiante(usuario);
                         if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(), cursoId)) {
                                 throw new RuntimeException("No estás inscrito en este curso");
                         }
@@ -113,9 +121,23 @@ public class EvaluacionService {
                                 throw new RuntimeException("No puedes listar evaluaciones en un curso que no es tuyo.");
                         }
                 }
+                Map<Integer, IntentoEvaluacion> intentosPorEvaluacion = new HashMap<>();
+                if (estudiante != null) {
+                        for (IntentoEvaluacion intento : intentoEvaluacionRepository.findByEstudianteId(estudiante.getId())) {
+                                intentosPorEvaluacion.merge(intento.getEvaluacion().getId(), intento,
+                                                (actual, nuevo) -> nuevo.getPuntajeObtenido() > actual.getPuntajeObtenido() ? nuevo : actual);
+                        }
+                }
+                final boolean esEstudiante = estudiante != null;
                 return evaluacionRepository.findByCursoId(cursoId).stream()
                                 .filter(this::estaPublicada)
-                                .map(evaluacionMapper::toResponse)
+                                .map(evaluacion -> {
+                                        EvaluacionResponse response = evaluacionMapper.toResponse(evaluacion);
+                                        if (esEstudiante) {
+                                                aplicarEstado(response, intentosPorEvaluacion.get(evaluacion.getId()));
+                                        }
+                                        return response;
+                                })
                                 .toList();
         }
 
@@ -124,8 +146,9 @@ public class EvaluacionService {
                 Usuario usuario = obtenerUsuarioByCorreo(authentication);
                 Evaluacion evaluacion = evaluacionRepository.findById(id)
                                 .orElseThrow(() -> new RuntimeException("Evaluación no encontrada"));
+                Estudiante estudiante = null;
                 if (usuario.getRol() == Rol.ESTUDIANTE) {
-                        Estudiante estudiante = obtenerEstudiante(usuario);
+                        estudiante = obtenerEstudiante(usuario);
                         if (!inscripcionCursoRepository.existsByEstudianteIdAndCursoId(estudiante.getId(), evaluacion.getCurso().getId())) {
                                 throw new RuntimeException("No estás inscrito en este curso");
                         }
@@ -138,7 +161,16 @@ public class EvaluacionService {
                 if (!estaPublicada(evaluacion)) {
                         throw new RuntimeException("Evaluación no disponible");
                 }
-                return evaluacionMapper.toResponse(evaluacion);
+                EvaluacionResponse response = evaluacionMapper.toResponse(evaluacion);
+                if (estudiante != null) {
+                        IntentoEvaluacion mejorIntento = intentoEvaluacionRepository
+                                        .findByEstudianteIdAndEvaluacionId(estudiante.getId(), evaluacion.getId())
+                                        .stream()
+                                        .max((a, b) -> Integer.compare(a.getPuntajeObtenido(), b.getPuntajeObtenido()))
+                                        .orElse(null);
+                        aplicarEstado(response, mejorIntento);
+                }
+                return response;
         }
 
         @Transactional
@@ -211,6 +243,7 @@ public class EvaluacionService {
                                 .evaluacionId(evaluacion.getId())
                                 .puntajeObtenido(intento.getPuntajeObtenido())
                                 .puntajeTotal(intento.getPuntajeTotal())
+                                .estado(calcularEstado(intento))
                                 .fechaEnvio(intento.getFechaEnvio())
                                 .build();
         }
@@ -238,6 +271,25 @@ public class EvaluacionService {
         private boolean estaVencida(Evaluacion evaluacion) {
                 return evaluacion.getFechaVencimiento() != null
                                 && LocalDateTime.now().isAfter(evaluacion.getFechaVencimiento());
+        }
+
+        private EstadoEvaluacion calcularEstado(IntentoEvaluacion intento) {
+                if (intento == null) {
+                        return EstadoEvaluacion.PENDIENTE;
+                }
+                int obtenido = intento.getPuntajeObtenido() != null ? intento.getPuntajeObtenido() : 0;
+                int total = intento.getPuntajeTotal() != null ? intento.getPuntajeTotal() : 0;
+                return obtenido * 100 >= total * porcentajeAprobacion
+                                ? EstadoEvaluacion.APROBADA
+                                : EstadoEvaluacion.REPROBADA;
+        }
+
+        private void aplicarEstado(EvaluacionResponse response, IntentoEvaluacion intento) {
+                response.setEstado(calcularEstado(intento));
+                response.setPuntajeObtenido(intento != null ? intento.getPuntajeObtenido() : null);
+                if (intento != null) {
+                        response.setPuntajeTotal(intento.getPuntajeTotal());
+                }
         }
 
         private Integer calcularPuntajeTotal(Evaluacion evaluacion) {
