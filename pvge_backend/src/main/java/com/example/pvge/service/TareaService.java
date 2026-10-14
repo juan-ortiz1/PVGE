@@ -2,6 +2,8 @@ package com.example.pvge.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,7 @@ import com.example.pvge.dto.tarea.TareaResponse;
 import com.example.pvge.mapper.TareaMapper;
 import com.example.pvge.model.Curso;
 import com.example.pvge.model.EntregaTarea;
+import com.example.pvge.model.EstadoTarea;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
@@ -74,7 +77,14 @@ public class TareaService {
                 Tarea tarea = tareaRepository.findById(id)
                                 .orElseThrow(() -> new RuntimeException("Tarea no encontrada"));
                 validarAccesoCurso(usuario, tarea.getCurso());
-                return tareaMapper.toResponse(tarea);
+                TareaResponse response = tareaMapper.toResponse(tarea);
+                if (usuario.getRol() == Rol.ESTUDIANTE) {
+                        Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
+                        boolean entregada = entregaTareaRepository.existsByTareaIdAndEstudianteId(id,
+                                        estudiante.getId());
+                        response.setEstado(calcularEstado(tarea, entregada));
+                }
+                return response;
         }
 
         public List<TareaResponse> getListaTareas(Integer cursoId, Authentication authentication) {
@@ -82,7 +92,29 @@ public class TareaService {
                 Curso curso = findCursoById(cursoId);
                 validarAccesoCurso(usuario, curso);
                 List<Tarea> tareas = tareaRepository.findByCursoIdOrderByFechaEntregaAsc(cursoId);
-                return tareas.stream().map(tareaMapper::toResponse).toList();
+                if (usuario.getRol() != Rol.ESTUDIANTE) {
+                        return tareas.stream().map(tareaMapper::toResponse).toList();
+                }
+                Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
+                Set<Integer> tareasEntregadas = entregaTareaRepository
+                                .findByEstudianteIdAndTareaCursoId(estudiante.getId(), cursoId).stream()
+                                .map(entrega -> entrega.getTarea().getId())
+                                .collect(Collectors.toSet());
+                return tareas.stream().map(tarea -> {
+                        TareaResponse response = tareaMapper.toResponse(tarea);
+                        response.setEstado(calcularEstado(tarea, tareasEntregadas.contains(tarea.getId())));
+                        return response;
+                }).toList();
+        }
+
+        private EstadoTarea calcularEstado(Tarea tarea, boolean entregada) {
+                if (entregada) {
+                        return EstadoTarea.ENTREGADA;
+                }
+                if (tarea.getFechaEntrega() != null && LocalDateTime.now().isAfter(tarea.getFechaEntrega())) {
+                        return EstadoTarea.VENCIDA;
+                }
+                return EstadoTarea.PENDIENTE;
         }
 
         @Transactional

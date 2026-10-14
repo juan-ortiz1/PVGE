@@ -2,6 +2,8 @@ package com.example.pvge.dto.tarea;
 
 import java.time.LocalDateTime;
 
+import com.example.pvge.model.EstadoTarea;
+
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,4 +18,5 @@ public class TareaResponse {
     private LocalDateTime fechaCreacion;
     private LocalDateTime fechaEntrega;
     private Integer cursoId;
+    private EstadoTarea estado;
 }
