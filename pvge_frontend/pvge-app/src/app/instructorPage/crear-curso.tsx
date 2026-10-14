@@ -24,7 +24,7 @@ const FieldError = ({ msg }: { msg?: string }) =>
   msg ? <Text className="text-red-600 text-xs mt-1">{msg}</Text> : null;
 
 export default function CrearCurso() {
-  const { accessToken } = useAuth();
+  const { authFetch } = useAuth();
 
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
@@ -45,11 +45,10 @@ export default function CrearCurso() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8080/api/cursos", {
+      const res = await authFetch("http://localhost:8080/api/cursos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           titulo: titulo.trim(),
@@ -90,7 +89,7 @@ export default function CrearCurso() {
           <ArrowLeft color="white" size={22} />
         </Pressable>
         <Text className="text-white text-2xl font-bold">Nuevo curso</Text>
-        <Text className="text-blue-100 text-sm mt-1">
+        <Text className="text-blue-200 text-sm mt-1">
           Comparte tu conocimiento con tus estudiantes
         </Text>
       </View>
@@ -106,6 +105,7 @@ export default function CrearCurso() {
         <View className="relative">
           <TextInput
             placeholder="Ej. Introducción a Bases de Datos"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             className={fieldClass(errors.titulo)}
             value={titulo}
@@ -125,6 +125,7 @@ export default function CrearCurso() {
         <View className="relative">
           <TextInput
             placeholder="¿Qué aprenderán los estudiantes en este curso?"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             multiline
             numberOfLines={5}
@@ -133,6 +134,9 @@ export default function CrearCurso() {
             value={descripcion}
             onChangeText={setDescripcion}
           />
+          <Text className="text-gray-400 text-xs text-right mt-1">
+            {descripcion.length}/255
+          </Text>
           <AlignLeft
             size={18}
             color="#9ca3af"

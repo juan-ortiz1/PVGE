@@ -28,12 +28,20 @@ import { useAuth } from "../../context/AuthContext";
 const TIERS = [1, 2, 3, 4, 5];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const fieldClass = (err?: string) =>
+  `flex-row items-center bg-white border rounded-xl px-3 h-12 ${
+    err ? "border-red-400" : "border-gray-200"
+  }`;
+
+const FieldError = ({ msg }: { msg?: string }) =>
+  msg ? <Text className="text-red-600 text-xs mt-1">{msg}</Text> : null;
+
 type Errors = Partial<
   Record<"nombre" | "email" | "password" | "disciplina" | "tier", string>
 >;
 
 export default function CrearInstructor() {
-  const { accessToken } = useAuth();
+  const { accessToken, authFetch } = useAuth();
 
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -63,11 +71,10 @@ export default function CrearInstructor() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8080/api/instructores", {
+      const res = await authFetch("http://localhost:8080/api/instructores", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           nombre: nombre.trim(),
@@ -94,14 +101,6 @@ export default function CrearInstructor() {
       setLoading(false);
     }
   };
-
-  const fieldClass = (err?: string) =>
-    `flex-row items-center bg-white border rounded-xl px-3 h-12 ${
-      err ? "border-red-400" : "border-gray-200"
-    }`;
-
-  const FieldError = ({ msg }: { msg?: string }) =>
-    msg ? <Text className="text-red-600 text-xs mt-1">{msg}</Text> : null;
 
   return (
     <KeyboardAvoidingView
@@ -137,6 +136,7 @@ export default function CrearInstructor() {
           <User size={18} color="#9ca3af" />
           <TextInput
             placeholder="Miguel David Torres Verano"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             value={nombre}
             onChangeText={setNombre}
@@ -153,6 +153,7 @@ export default function CrearInstructor() {
           <Mail size={18} color="#9ca3af" />
           <TextInput
             placeholder="miguel_torres@mentum.edu.co"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -203,6 +204,7 @@ export default function CrearInstructor() {
           <Briefcase size={18} color="#9ca3af" />
           <TextInput
             placeholder="Ingeniería de Sistemas"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             value={disciplina}
             onChangeText={setDisciplina}
