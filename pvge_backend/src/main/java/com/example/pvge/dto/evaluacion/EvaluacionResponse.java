@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.example.pvge.dto.curso.CursoResponse;
 import com.example.pvge.dto.pregunta.PreguntaResponse;
+import com.example.pvge.model.EstadoEvaluacion;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,5 +26,7 @@ public class EvaluacionResponse {
     private LocalDateTime fechaVencimiento;
     private CursoResponse cursoResponse;
     private Integer puntajeTotal;
+    private EstadoEvaluacion estado;
+    private Integer puntajeObtenido;
     private List<PreguntaResponse> preguntas;
 }
