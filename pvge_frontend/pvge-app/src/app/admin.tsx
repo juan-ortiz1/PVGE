@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   Power,
   Users,
@@ -57,17 +57,16 @@ const ACTIONS = [
 
 export default function Admin() {
   const [error, setError] = useState<string | null>(null);
-  const { accessToken, ready, logout } = useAuth();
+  const { accessToken, authFetch, ready, logout } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoutModal, setLogoutModal] = useState(false);
 
   const load = async () => {
     try {
-      const headers = { Authorization: `Bearer ${accessToken}` };
       const [rU, rC] = await Promise.all([
-        fetch("http://localhost:8080/api/admin/usuarios", { headers }),
-        fetch("http://localhost:8080/api/admin/cursos", { headers }),
+        authFetch("http://localhost:8080/api/admin/usuarios"),
+        authFetch("http://localhost:8080/api/admin/cursos"),
       ]);
       if (!rU.ok || !rC.ok) {
         throw new Error(`Error ${!rU.ok ? rU.status : rC.status}`);
@@ -75,7 +74,7 @@ export default function Admin() {
       const usuarios: Usuario[] = await rU.json();
       const cursos: unknown[] = await rC.json();
       setStats({
-        usuarios: usuarios.length,
+        usuarios: usuarios.filter((u) => u.rol !== "ADMIN").length,
         estudiantes: usuarios.filter((u) => u.rol === "ESTUDIANTE").length,
         instructores: usuarios.filter((u) => u.rol === "INSTRUCTOR").length,
         cursos: cursos.length,
@@ -89,14 +88,16 @@ export default function Admin() {
     }
   };
 
-  useEffect(() => {
-    if (!ready) return;
-    if (!accessToken) {
-      router.replace("/");
-      return;
-    }
-    load();
-  }, [ready, accessToken]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!ready) return;
+      if (!accessToken) {
+        router.replace("/");
+        return;
+      }
+      load();
+    }, [ready, accessToken]),
+  );
 
   const confirmLogout = async () => {
     setLogoutModal(false);

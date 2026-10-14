@@ -70,7 +70,7 @@ const FieldError = ({ msg }: { msg?: string }) =>
   msg ? <Text className="text-red-600 text-xs mt-1">{msg}</Text> : null;
 
 export default function CrearTarea() {
-  const { accessToken } = useAuth();
+  const { authFetch } = useAuth();
   const { cursoId, t } = useLocalSearchParams<{
     cursoId: string;
     t?: string;
@@ -102,11 +102,10 @@ export default function CrearTarea() {
     if (!validate() || !fecha) return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8080/api/tareas", {
+      const res = await authFetch("http://localhost:8080/api/tareas", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           titulo: titulo.trim(),
@@ -167,6 +166,7 @@ export default function CrearTarea() {
         <View className="relative">
           <TextInput
             placeholder="Ej. Taller de componentes"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             className={fieldClass(errors.titulo)}
             value={titulo}
@@ -186,6 +186,7 @@ export default function CrearTarea() {
         <View className="relative">
           <TextInput
             placeholder="Explica qué debe entregar el estudiante"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             multiline
             numberOfLines={5}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Modal,
   ActivityIndicator,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Search, Trash2, Users, X } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -49,7 +49,7 @@ const FILTROS = [
 ] as const;
 
 export default function ListadoUsuarios() {
-  const { accessToken, ready } = useAuth();
+  const { accessToken, authFetch, ready } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,11 +63,9 @@ export default function ListadoUsuarios() {
   const [cursos, setCursos] = useState<string[]>([]);
   const [loadingCursos, setLoadingCursos] = useState(false);
 
-  const headers = { Authorization: `Bearer ${accessToken}` };
-
   const fetchUsuarios = async () => {
     try {
-      const res = await fetch(`${API}/usuarios`, { headers });
+      const res = await authFetch(`${API}/usuarios`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       setUsuarios(await res.json());
       setError(null);
@@ -79,14 +77,16 @@ export default function ListadoUsuarios() {
     }
   };
 
-  useEffect(() => {
-    if (!ready) return;
-    if (!accessToken) {
-      router.replace("/");
-      return;
-    }
-    fetchUsuarios();
-  }, [ready, accessToken]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!ready) return;
+      if (!accessToken) {
+        router.replace("/");
+        return;
+      }
+      fetchUsuarios();
+    }, [ready, accessToken]),
+  );
 
   const abrirDetalle = async (u: Usuario) => {
     setDetalle(u);
@@ -94,7 +94,7 @@ export default function ListadoUsuarios() {
     if (u.rol !== "ESTUDIANTE") return;
     setLoadingCursos(true);
     try {
-      const res = await fetch(`${API}/usuarios/${u.id}/cursos`, { headers });
+      const res = await authFetch(`${API}/usuarios/${u.id}/cursos`);
       if (res.ok) setCursos(await res.json());
     } catch (e) {
       console.error(e);
@@ -106,9 +106,8 @@ export default function ListadoUsuarios() {
   const confirmDelete = async () => {
     if (!deleteUser) return;
     try {
-      const res = await fetch(`${API}/usuarios/${deleteUser.id}`, {
+      const res = await authFetch(`${API}/usuarios/${deleteUser.id}`, {
         method: "DELETE",
-        headers,
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       setUsuarios((prev) => prev.filter((u) => u.id !== deleteUser.id));
@@ -267,7 +266,10 @@ export default function ListadoUsuarios() {
       <Modal visible={!!detalle} transparent animationType="slide">
         <Pressable
           className="flex-1 justify-end bg-black/50"
-          onPress={() => setDetalle(null)}
+          onPress={() => {
+            setDeleteUser(detalle);
+            setDetalle(null);
+          }}
         >
           <Pressable className="bg-white rounded-t-3xl p-6 pb-10">
             {detalle && (

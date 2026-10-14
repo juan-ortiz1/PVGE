@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Search, Trash2, BookOpen, X } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -35,18 +35,16 @@ const AVATAR = [
 ];
 
 export default function GestionarCursos() {
-  const { accessToken, ready } = useAuth();
+  const { accessToken, authFetch, ready } = useAuth();
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [deleteCurso, setDeleteCurso] = useState<Curso | null>(null);
 
-  const headers = { Authorization: `Bearer ${accessToken}` };
-
   const fetchCursos = async () => {
     try {
-      const res = await fetch(`${API}/cursos`, { headers });
+      const res = await authFetch(`${API}/cursos`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
       setCursos(await res.json());
       setError(null);
@@ -58,21 +56,22 @@ export default function GestionarCursos() {
     }
   };
 
-  useEffect(() => {
-    if (!ready) return;
-    if (!accessToken) {
-      router.replace("/");
-      return;
-    }
-    fetchCursos();
-  }, [ready, accessToken]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!ready) return;
+      if (!accessToken) {
+        router.replace("/");
+        return;
+      }
+      fetchCursos();
+    }, [ready, accessToken]),
+  );
 
   const confirmDelete = async () => {
     if (!deleteCurso) return;
     try {
-      const res = await fetch(`${API}/cursos/${deleteCurso.id}`, {
+      const res = await authFetch(`${API}/cursos/${deleteCurso.id}`, {
         method: "DELETE",
-        headers,
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       setCursos((prev) => prev.filter((c) => c.id !== deleteCurso.id));
@@ -215,7 +214,11 @@ export default function GestionarCursos() {
                     <View />
                   )}
                   <Text className="text-gray-500 text-xs">
-                    {new Date(item.fechaCreacion).toLocaleDateString()}
+                    {new Date(item.fechaCreacion).toLocaleDateString("es-CO", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </Text>
                 </View>
               </View>

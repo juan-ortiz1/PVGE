@@ -62,7 +62,7 @@ const FieldError = ({ msg }: { msg?: string }) =>
   msg ? <Text className="text-red-600 text-xs mt-1">{msg}</Text> : null;
 
 export default function CrearContenido() {
-  const { accessToken } = useAuth();
+  const { authFetch } = useAuth();
   const { cursoId, t } = useLocalSearchParams<{
     cursoId: string;
     t?: string;
@@ -92,11 +92,10 @@ export default function CrearContenido() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8080/api/contenidos", {
+      const res = await authFetch("http://localhost:8080/api/contenidos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           titulo: titulo.trim(),
@@ -153,6 +152,7 @@ export default function CrearContenido() {
         <View className="relative">
           <TextInput
             placeholder="Ej. Fundamentos de componentes"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             className={fieldClass(errors.titulo)}
             value={titulo}
@@ -172,6 +172,7 @@ export default function CrearContenido() {
         <View className="relative">
           <TextInput
             placeholder="Resume de qué trata este contenido"
+            maxLength={255}
             placeholderTextColor="#9ca3af"
             multiline
             numberOfLines={5}
@@ -210,7 +211,7 @@ export default function CrearContenido() {
           <FieldError msg={errors.orden} />
         ) : (
           <Text className="text-gray-600 text-xs mt-1">
-            Si lo dejas vacío, se agrega al final
+            Opcional: define la posición dentro del curso
           </Text>
         )}
 

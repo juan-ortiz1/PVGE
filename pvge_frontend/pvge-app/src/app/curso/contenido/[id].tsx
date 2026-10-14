@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Image,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import {
   ArrowLeft,
@@ -82,6 +83,13 @@ const THEMES = [
   },
 ];
 
+const fmtFecha = (f: string) =>
+  new Date(f).toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
 const infoTipo = (tipo: string, nombre: string) => {
   const s = `${tipo ?? ""} ${nombre ?? ""}`.toLowerCase();
   if (s.includes("pdf"))
@@ -114,9 +122,39 @@ const infoTipo = (tipo: string, nombre: string) => {
   return { label: "Archivo", Icon: File, bg: "bg-gray-100", hex: "#4b5563" };
 };
 
+// Miniatura para imágenes; si no carga, muestra el ícono del tipo
+const RecursoThumb = ({
+  url,
+  tipo,
+}: {
+  url: string;
+  tipo: ReturnType<typeof infoTipo>;
+}) => {
+  const [failed, setFailed] = useState(false);
+
+  if (tipo.label === "Imagen" && !failed) {
+    return (
+      <Image
+        source={{ uri: url }}
+        onError={() => setFailed(true)}
+        className="w-11 h-11 rounded-xl mr-3 bg-gray-100"
+        resizeMode="cover"
+      />
+    );
+  }
+
+  return (
+    <View
+      className={`w-11 h-11 rounded-xl ${tipo.bg} items-center justify-center mr-3`}
+    >
+      <tipo.Icon size={18} color={tipo.hex} />
+    </View>
+  );
+};
+
 export default function ContenidoDetalle() {
   const { id, t } = useLocalSearchParams<{ id: string; t?: string }>();
-  const { accessToken, role, ready } = useAuth();
+  const { accessToken, authFetch, role, ready } = useAuth();
 
   const theme =
     THEMES[Number(t) >= 0 && Number(t) < THEMES.length ? Number(t) : 0];
@@ -129,11 +167,9 @@ export default function ContenidoDetalle() {
   const [error, setError] = useState<string | null>(null);
   const [deleteRecurso, setDeleteRecurso] = useState<Recurso | null>(null);
 
-  const headers = { Authorization: `Bearer ${accessToken}` };
-
   const fetchRecursos = async () => {
     try {
-      const res = await fetch(`${API}/recursos/contenido/${id}`, { headers });
+      const res = await authFetch(`${API}/recursos/contenido/${id}`);
       if (!res.ok)
         throw new Error(`Error ${res.status} al cargar los recursos`);
       const data = await res.json();
@@ -149,22 +185,24 @@ export default function ContenidoDetalle() {
 
   const fetchContenido = async () => {
     try {
-      const res = await fetch(`${API}/contenidos/${id}`, { headers });
+      const res = await authFetch(`${API}/contenidos/${id}`);
       if (res.ok) setContenido(await res.json());
     } catch (e) {
       console.error(e);
     }
   };
 
-  useEffect(() => {
-    if (!ready) return;
-    if (!accessToken) {
-      router.replace("/");
-      return;
-    }
-    fetchContenido();
-    fetchRecursos();
-  }, [ready, accessToken]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!ready) return;
+      if (!accessToken) {
+        router.replace("/");
+        return;
+      }
+      fetchContenido();
+      fetchRecursos();
+    }, [ready, accessToken]),
+  );
 
   const handleUpload = async () => {
     setError(null);
@@ -188,9 +226,8 @@ export default function ContenidoDetalle() {
         } as any);
       }
 
-      const res = await fetch(`${API}/recursos`, {
+      const res = await authFetch(`${API}/recursos`, {
         method: "POST",
-        headers,
         body: formData,
       });
       if (!res.ok) throw new Error(`Error ${res.status} al subir el archivo`);
@@ -203,12 +240,43 @@ export default function ContenidoDetalle() {
     }
   };
 
+  const abrir = (r: Recurso) => {
+    if (Platform.OS === "web") {
+      window.open(r.url, "_blank");
+    } else {
+      Linking.openURL(r.url);
+    }
+  };
+
+  const descargar = async (r: Recurso) => {
+    if (Platform.OS !== "web") {
+      Linking.openURL(r.url);
+      return;
+    }
+    try {
+      const res = await fetch(r.url);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = r.nombre;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+    } catch (e) {
+      console.error(e);
+      // Si falla (CORS, URL no accesible), al menos se abre en otra pestaña
+      window.open(r.url, "_blank");
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deleteRecurso) return;
     try {
-      const res = await fetch(`${API}/recursos/${deleteRecurso.id}`, {
+      const res = await authFetch(`${API}/recursos/${deleteRecurso.id}`, {
         method: "DELETE",
-        headers,
       });
       if (!res.ok) throw new Error(`Error ${res.status} al eliminar`);
       setRecursos((prev) => prev.filter((r) => r.id !== deleteRecurso.id));
@@ -295,26 +363,25 @@ export default function ContenidoDetalle() {
           renderItem={({ item }) => {
             const tipo = infoTipo(item.tipo, item.nombre);
             return (
-              <View
-                className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 flex-row items-center"
+              <Pressable
+                onPress={() => abrir(item)}
+                className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 flex-row items-center active:bg-gray-50"
                 style={{ elevation: 1 }}
               >
-                <View
-                  className={`w-11 h-11 rounded-xl ${tipo.bg} items-center justify-center mr-3`}
-                >
-                  <tipo.Icon size={18} color={tipo.hex} />
-                </View>
+                <RecursoThumb url={item.url} tipo={tipo} />
                 <View className="flex-1 mr-2">
                   <Text className="font-bold text-gray-900" numberOfLines={1}>
                     {item.nombre}
                   </Text>
                   <Text className="text-gray-600 text-xs">
-                    {tipo.label} ·{" "}
-                    {new Date(item.fechaSubida).toLocaleDateString()}
+                    {tipo.label} · {fmtFecha(item.fechaSubida)}
                   </Text>
                 </View>
                 <Pressable
-                  onPress={() => Linking.openURL(item.url)}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    descargar(item);
+                  }}
                   accessibilityLabel={`Descargar ${item.nombre}`}
                   hitSlop={10}
                   className="bg-blue-50 p-2.5 rounded-full mr-2"
@@ -323,7 +390,10 @@ export default function ContenidoDetalle() {
                 </Pressable>
                 {esInstructor && (
                   <Pressable
-                    onPress={() => setDeleteRecurso(item)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setDeleteRecurso(item);
+                    }}
                     accessibilityLabel={`Eliminar ${item.nombre}`}
                     hitSlop={10}
                     className="bg-red-50 p-2.5 rounded-full"
@@ -331,7 +401,7 @@ export default function ContenidoDetalle() {
                     <Trash2 size={16} color="#dc2626" />
                   </Pressable>
                 )}
-              </View>
+              </Pressable>
             );
           }}
         />
