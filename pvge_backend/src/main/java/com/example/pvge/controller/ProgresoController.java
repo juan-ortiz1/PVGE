@@ -43,6 +43,13 @@ public class ProgresoController {
         return ResponseEntity.ok(progresoService.obtenerProgresoCurso(cursoId, authentication));
     }
 
+    /**
+     * Método GET para obtener el progreso de la lista de todos los estudiantes inscritos en un curso.
+     * Solo se puede ver como instructor
+     * @param cursoId
+     * @param authentication
+     * @return List<ProgresoEstudianteResponse> de todos los estudiantes en un curso
+     */
     @GetMapping("/instructor/curso/{cursoId}")
     public ResponseEntity<List<ProgresoEstudianteResponse>> obtenerProgresoEstudiante(@PathVariable Integer cursoId, Authentication authentication) {
         return ResponseEntity.ok(progresoService.obtenerProgresoEstudiantes(cursoId, authentication));
