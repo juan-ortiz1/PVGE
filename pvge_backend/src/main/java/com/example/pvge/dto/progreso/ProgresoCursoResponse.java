@@ -5,7 +5,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
+/**
+ * Clase DTO que retorna el progreso de un curso para un estudiante
+ * ProgresoCursoResponse
+ */
 @Getter 
 @Setter 
 @Builder 
@@ -18,6 +21,7 @@ public class ProgresoCursoResponse {
     private Integer tareasCompletadas;
     private Integer evaluacionesTotales;
     private Integer evaluacionesCompletadas;
+    private Integer tareasPendientes;
     private Integer evaluacionesPendientes;
 
     private double porcentajeCompletado;
