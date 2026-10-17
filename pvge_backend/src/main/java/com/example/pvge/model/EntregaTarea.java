@@ -1,5 +1,6 @@
 package com.example.pvge.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -39,6 +40,15 @@ public class EntregaTarea {
 
     @Column(name = "fecha_entrega", nullable = false)
     private LocalDateTime fechaEntrega;
+
+    @Column(name = "calificacion")
+    private BigDecimal calificacion;
+
+    @Column(name = "observaciones")
+    private String observaciones;
+
+    @Column(name = "fecha_calificacion")
+    private LocalDateTime fechaCalificacion;
 
     @ManyToOne
     @JoinColumn(name = "tarea_id", nullable = false)

@@ -1,14 +1,18 @@
 package com.example.pvge.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.example.pvge.dto.tarea.CalificacionEntregaRequest;
 import com.example.pvge.dto.tarea.EntregaTareaResponse;
 import com.example.pvge.dto.tarea.TareaRequest;
 import com.example.pvge.dto.tarea.TareaResponse;
@@ -146,7 +150,7 @@ public class TareaService {
                 nombreArchivo = nombreArchivo.substring(nombreArchivo.lastIndexOf("/") + 1);
 
                 String urlNueva = fileStorageService.upload(archivo, "entregas");
-                
+
                 EntregaTarea entrega = existente.orElseGet(() -> EntregaTarea.builder()
                                 .tarea(tarea).estudiante(estudiante)
                                 .build());
@@ -170,6 +174,154 @@ public class TareaService {
                                 .urlArchivo(guardada.getUrlArchivo())
                                 .tipoContenido(guardada.getTipoContenido())
                                 .fechaEntrega(guardada.getFechaEntrega())
+                                .build();
+        }
+
+        @Transactional
+        public EntregaTareaResponse calificarTarea(Integer entregaId, CalificacionEntregaRequest request,
+                        Authentication authentication) {
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
+                Instructor instructor = findInstructorByUsuarioId(usuario.getId());
+                EntregaTarea entrega = entregaTareaRepository.findById(entregaId)
+                                .orElseThrow(() -> new RuntimeException("Entrega no encontrada"));
+                if (!esPropietarioCurso(instructor.getId(), entrega.getTarea().getCurso())) {
+                        throw new RuntimeException("No puedes calificar entregas de un curso que no es tuyo.");
+                }
+                BigDecimal calificacion = request.getCalificacion();
+                if (calificacion.compareTo(BigDecimal.valueOf(0.0)) < 0
+                                || calificacion.compareTo(BigDecimal.valueOf(5.0)) > 0) {
+                        throw new RuntimeException("La calificación debe estar entre 0.0 y 5.0");
+                }
+                entrega.setCalificacion(request.getCalificacion());
+                entrega.setObservaciones(request.getObservaciones());
+                entrega.setFechaCalificacion(LocalDateTime.now());
+                EntregaTarea entregaGuardada = entregaTareaRepository.save(entrega);
+                return EntregaTareaResponse.builder()
+                                .id(entregaGuardada.getId())
+                                .tareaId(entregaGuardada.getTarea().getId())
+                                .nombreArchivo(entregaGuardada.getNombreArchivo())
+                                .urlArchivo(entregaGuardada.getUrlArchivo())
+                                .tipoContenido(entregaGuardada.getTipoContenido())
+                                .fechaEntrega(entregaGuardada.getFechaEntrega())
+                                .calificacion(entregaGuardada.getCalificacion())
+                                .observaciones(entregaGuardada.getObservaciones())
+                                .fechaCalificacion(entregaGuardada.getFechaCalificacion())
+                                .build();
+        }
+
+        /**
+         * Obtener todas las entregas de un curso para un instructor
+         * 
+         * @param cursoId
+         * @param authentication
+         * @return
+         */
+        @Transactional()
+        public List<EntregaTareaResponse> obtenerEntregasCurso(
+                        Integer cursoId,
+                        Authentication authentication) {
+                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+                if (!"INSTRUCTOR".equals(usuario.getRol().name())) {
+                        throw new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN, "Acceso exclusivo para instructores");
+                }
+                Instructor instructor = instructorRepository
+                                .findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Instructor no encontrado"));
+                Curso curso = cursoRepository.findById(cursoId)
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Curso no encontrado"));
+                if (!curso.getInstructor().getId().equals(instructor.getId())) {
+                        throw new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN,
+                                        "No puedes consultar entregas de otro instructor");
+                }
+                List<EntregaTarea> entregas = entregaTareaRepository.findByTareaCursoId(cursoId);
+                return entregas.stream()
+                                .map(this::convertirEntregaResponse)
+                                .toList();
+        }
+        /**
+         * Obtener información de una entrega para un estudiante en una tarea (calificación)
+         * @param tareaId
+         * @param authentication
+         * @return
+         */
+        @Transactional
+        public EntregaTareaResponse obtenerMiEntrega(
+                        Integer tareaId,
+                        Authentication authentication) {
+                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+                if (!"ESTUDIANTE".equals(usuario.getRol().name())) {
+                        throw new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN, "Acceso exclusivo para estudiantes");
+                }
+                Estudiante estudiante = estudianteRepository
+                                .findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Estudiante no encontrado"));
+                EntregaTarea entrega = entregaTareaRepository
+                                .findByTareaIdAndEstudianteId(tareaId, estudiante.getId())
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND,
+                                                "Todavía no tienes una entrega registrada para esta tarea"));
+                return convertirEntregaResponse(entrega);
+        }
+
+        /**
+         * Obtener calificaciones de entregas para todos los cursos como estudiante
+         * 
+         * @param authentication
+         * @return Lista de entregas para todos los cursos
+         */
+        @Transactional
+        public List<EntregaTareaResponse> obtenerMisCalificaciones(
+                        Authentication authentication) {
+                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+                if (!"ESTUDIANTE".equals(usuario.getRol().name())) {
+                        throw new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN, "Acceso exclusivo para estudiantes");
+                }
+                Estudiante estudiante = estudianteRepository
+                                .findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Estudiante no encontrado"));
+                List<EntregaTarea> entregas = entregaTareaRepository.findByEstudianteIdOrderByFechaEntregaDesc(
+                                estudiante.getId());
+                return entregas.stream()
+                                .map(this::convertirEntregaResponse)
+                                .toList();
+        }
+
+        /**
+         * Mapear entregas (Convertir a Mapper)
+         * 
+         * @param entrega
+         * @return
+         */
+        private EntregaTareaResponse convertirEntregaResponse(
+                        EntregaTarea entrega) {
+
+                return EntregaTareaResponse.builder()
+                                .id(entrega.getId())
+                                .tareaId(entrega.getTarea().getId())
+                                .tareaTitulo(entrega.getTarea().getTitulo())
+                                .estudianteId(entrega.getEstudiante().getId())
+                                .correoEstudiante(entrega.getEstudiante().getUsuario().getCorreo())
+                                .nombreArchivo(entrega.getNombreArchivo())
+                                .urlArchivo(entrega.getUrlArchivo())
+                                .tipoContenido(entrega.getTipoContenido())
+                                .fechaEntrega(entrega.getFechaEntrega())
+                                .calificacion(entrega.getCalificacion())
+                                .observaciones(entrega.getObservaciones())
+                                .fechaCalificacion(entrega.getFechaCalificacion())
                                 .build();
         }
 
