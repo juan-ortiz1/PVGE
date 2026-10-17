@@ -217,23 +217,13 @@ public class TareaService {
          * @return
          */
         @Transactional()
-        public List<EntregaTareaResponse> obtenerEntregasCurso(
-                        Integer cursoId,
-                        Authentication authentication) {
-                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        public List<EntregaTareaResponse> obtenerEntregasCurso(Integer cursoId, Authentication authentication) {
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
                 if (!"INSTRUCTOR".equals(usuario.getRol().name())) {
-                        throw new ResponseStatusException(
-                                        HttpStatus.FORBIDDEN, "Acceso exclusivo para instructores");
+                        throw new RuntimeException("Acceso exclusivo para instructores");
                 }
-                Instructor instructor = instructorRepository
-                                .findByUsuarioId(usuario.getId())
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "Instructor no encontrado"));
-                Curso curso = cursoRepository.findById(cursoId)
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "Curso no encontrado"));
+                Instructor instructor = findInstructorByUsuarioId(usuario.getId());
+                Curso curso = findCursoById(cursoId);
                 if (!curso.getInstructor().getId().equals(instructor.getId())) {
                         throw new ResponseStatusException(
                                         HttpStatus.FORBIDDEN,
@@ -251,25 +241,15 @@ public class TareaService {
          * @return
          */
         @Transactional
-        public EntregaTareaResponse obtenerMiEntrega(
-                        Integer tareaId,
-                        Authentication authentication) {
-                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        public EntregaTareaResponse obtenerMiEntrega(Integer tareaId, Authentication authentication) {
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
                 if (!"ESTUDIANTE".equals(usuario.getRol().name())) {
-                        throw new ResponseStatusException(
-                                        HttpStatus.FORBIDDEN, "Acceso exclusivo para estudiantes");
+                        throw new RuntimeException("Acceso exclusivo para estudiantes");
                 }
-                Estudiante estudiante = estudianteRepository
-                                .findByUsuarioId(usuario.getId())
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "Estudiante no encontrado"));
+                Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
                 EntregaTarea entrega = entregaTareaRepository
                                 .findByTareaIdAndEstudianteId(tareaId, estudiante.getId())
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND,
-                                                "Todavía no tienes una entrega registrada para esta tarea"));
+                                .orElseThrow(() -> new RuntimeException("No tienes una entrega para esta tarea"));
                 return convertirEntregaResponse(entrega);
         }
 
@@ -280,21 +260,13 @@ public class TareaService {
          * @return Lista de entregas para todos los cursos
          */
         @Transactional
-        public List<EntregaTareaResponse> obtenerMisCalificaciones(
-                        Authentication authentication) {
-                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        public List<EntregaTareaResponse> obtenerMisCalificaciones(Authentication authentication) {
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
                 if (!"ESTUDIANTE".equals(usuario.getRol().name())) {
-                        throw new ResponseStatusException(
-                                        HttpStatus.FORBIDDEN, "Acceso exclusivo para estudiantes");
+                        throw new RuntimeException("Acceso exclusivo para estudiantes");
                 }
-                Estudiante estudiante = estudianteRepository
-                                .findByUsuarioId(usuario.getId())
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "Estudiante no encontrado"));
-                List<EntregaTarea> entregas = entregaTareaRepository.findByEstudianteIdOrderByFechaEntregaDesc(
-                                estudiante.getId());
+                Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
+                List<EntregaTarea> entregas = entregaTareaRepository.findByEstudianteIdOrderByFechaEntregaDesc(estudiante.getId());
                 return entregas.stream()
                                 .map(this::convertirEntregaResponse)
                                 .toList();

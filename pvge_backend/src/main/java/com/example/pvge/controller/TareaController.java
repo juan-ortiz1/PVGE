@@ -54,35 +54,23 @@ public class TareaController {
     }
 
     @PutMapping("/entregas/{entregaId}/calificacion")
-    public ResponseEntity<EntregaTareaResponse> calificarTarea(@PathVariable Integer entregaId,
-            @RequestBody CalificacionEntregaRequest request, Authentication authentication) {
+    public ResponseEntity<EntregaTareaResponse> calificarTarea(@PathVariable Integer entregaId, @RequestBody CalificacionEntregaRequest request, Authentication authentication) {
         return ResponseEntity.ok(tareaService.calificarTarea(entregaId, request, authentication));
     }
 
     @GetMapping("/curso/{cursoId}/entregas")
-    public ResponseEntity<List<EntregaTareaResponse>> obtenerEntregasCurso(
-            @PathVariable Integer cursoId,
-            Authentication authentication) {
-
-        return ResponseEntity.ok(
-                tareaService.obtenerEntregasCurso(cursoId, authentication));
+    public ResponseEntity<List<EntregaTareaResponse>> obtenerEntregasCurso(@PathVariable Integer cursoId, Authentication authentication) {
+        return ResponseEntity.ok(tareaService.obtenerEntregasCurso(cursoId, authentication));
     }
 
     @GetMapping("/{tareaId}/mis-entregas")
-    public ResponseEntity<EntregaTareaResponse> obtenerMiEntrega(
-            @PathVariable Integer tareaId,
-            Authentication authentication) {
-
-        return ResponseEntity.ok(
-                tareaService.obtenerMiEntrega(tareaId, authentication));
+    public ResponseEntity<EntregaTareaResponse> obtenerMiEntrega(@PathVariable Integer tareaId, Authentication authentication) {
+        return ResponseEntity.ok(tareaService.obtenerMiEntrega(tareaId, authentication));
     }
 
     @GetMapping("/mis-calificaciones")
-    public ResponseEntity<List<EntregaTareaResponse>> obtenerMisCalificaciones(
-            Authentication authentication) {
-
-        return ResponseEntity.ok(
-                tareaService.obtenerMisCalificaciones(authentication));
+    public ResponseEntity<List<EntregaTareaResponse>> obtenerMisCalificaciones(Authentication authentication) {
+        return ResponseEntity.ok(tareaService.obtenerMisCalificaciones(authentication));
     }
 
 }
