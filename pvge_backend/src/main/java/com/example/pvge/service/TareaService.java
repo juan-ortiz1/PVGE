@@ -24,6 +24,7 @@ import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
 import com.example.pvge.model.Tarea;
+import com.example.pvge.model.TipoNotificacion;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.CursoRepository;
 import com.example.pvge.repository.EntregaTareaRepository;
@@ -49,6 +50,7 @@ public class TareaService {
         private final FileStorageService fileStorageService;
         private final TareaMapper tareaMapper;
         private final InscripcionCursoRepository inscripcionCursoRepository;
+        private final NotificacionService notificacionService;
 
         @Transactional
         public TareaResponse crearTarea(TareaRequest request, Authentication authentication) {
@@ -73,6 +75,10 @@ public class TareaService {
                                 .curso(curso)
                                 .build();
                 tareaRepository.save(tarea);
+                notificacionService.notificarInscritos(curso, TipoNotificacion.NUEVA_TAREA,
+                                "Nueva tarea en " + curso.getTitulo(),
+                                tarea.getTitulo() + " - entrega hasta " + tarea.getFechaEntrega(),
+                                tarea.getId());
                 return tareaMapper.toResponse(tarea);
         }
 
@@ -196,6 +202,12 @@ public class TareaService {
                 entrega.setObservaciones(request.getObservaciones());
                 entrega.setFechaCalificacion(LocalDateTime.now());
                 EntregaTarea entregaGuardada = entregaTareaRepository.save(entrega);
+                Tarea tarea = entregaGuardada.getTarea();
+                notificacionService.notificarEstudiante(entregaGuardada.getEstudiante(), tarea.getCurso(),
+                                TipoNotificacion.TAREA_CALIFICADA,
+                                "Tarea calificada",
+                                "Tu entrega de \"" + tarea.getTitulo() + "\" obtuvo " + entregaGuardada.getCalificacion(),
+                                tarea.getId());
                 return EntregaTareaResponse.builder()
                                 .id(entregaGuardada.getId())
                                 .tareaId(entregaGuardada.getTarea().getId())

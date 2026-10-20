@@ -60,6 +60,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.POST, "/api/recursos").hasAuthority("INSTRUCTOR")
                                 .requestMatchers(HttpMethod.GET, "/api/evaluaciones/**").hasAuthority("ESTUDIANTE")
                                 .requestMatchers(HttpMethod.POST, "/api/evaluaciones/*/responder").hasAuthority("ESTUDIANTE")
+                                .requestMatchers("/api/notificaciones/**").hasAuthority("ESTUDIANTE")
                                 .requestMatchers("/api/admin/**")
                                 .hasAuthority("ADMIN").anyRequest().authenticated())
                 .sessionManagement(

@@ -30,6 +30,7 @@ import com.example.pvge.model.Opcion;
 import com.example.pvge.model.Pregunta;
 import com.example.pvge.model.RespuestaEstudiante;
 import com.example.pvge.model.Rol;
+import com.example.pvge.model.TipoNotificacion;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.CursoRepository;
 import com.example.pvge.repository.EstudianteRepository;
@@ -60,6 +61,7 @@ public class EvaluacionService {
         private final InscripcionCursoRepository inscripcionCursoRepository;
         private final IntentoEvaluacionRepository intentoEvaluacionRepository;
         private final RespuestaEstudianteRepository respuestaEstudianteRepository;
+        private final NotificacionService notificacionService;
 
         @Value("${evaluacion.porcentaje-aprobacion:60}")
         private int porcentajeAprobacion;
@@ -100,6 +102,8 @@ public class EvaluacionService {
                                 pregunta.getOpciones().add(opcion);
                         }
                 }
+                notificacionService.notificarInscritos(curso, TipoNotificacion.NUEVA_EVALUACION,
+                                "Nueva evaluación en " + curso.getTitulo(), evaluacion.getTitulo(), evaluacion.getId());
                 EvaluacionResponse response = evaluacionMapper.toResponse(evaluacion);
                 response.setPuntajeTotal(calcularPuntajeTotal(evaluacion));
                 return response;

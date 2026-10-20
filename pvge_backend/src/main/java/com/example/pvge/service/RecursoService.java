@@ -14,6 +14,7 @@ import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Recurso;
 import com.example.pvge.model.Rol;
+import com.example.pvge.model.TipoNotificacion;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.ContenidoRepository;
 import com.example.pvge.repository.EstudianteRepository;
@@ -37,6 +38,7 @@ public class RecursoService {
         private final EstudianteRepository estudianteRepository;
         private final FileStorageService fileStorageService;
         private final InscripcionCursoRepository inscripcionCursoRepository;
+        private final NotificacionService notificacionService;
 
         @Transactional
         public RecursoResponse addRecurso(RecursoRequest request, Authentication authentication) {
@@ -59,6 +61,8 @@ public class RecursoService {
                                 .contenido(contenido)
                                 .build();
                 recursoRepository.save(recurso);
+                notificacionService.notificarInscritos(contenido.getCurso(), TipoNotificacion.NUEVO_RECURSO,
+                                "Nuevo recurso en " + contenido.getTitulo(), recurso.getNombre(), contenido.getId());
                 return recursoMapper.toResponse(recurso);
         }
 

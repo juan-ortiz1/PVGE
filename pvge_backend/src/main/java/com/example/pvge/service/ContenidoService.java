@@ -15,6 +15,7 @@ import com.example.pvge.model.Curso;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
+import com.example.pvge.model.TipoNotificacion;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.ContenidoRepository;
 import com.example.pvge.repository.CursoRepository;
@@ -36,6 +37,7 @@ public class ContenidoService {
         private final CursoRepository cursoRepository;
         private final ContenidoMapper contenidoMapper;
         private final InscripcionCursoRepository inscripcionCursoRepository;
+        private final NotificacionService notificacionService;
 
         @Transactional
         public ContenidoResponse crearContenido(ContenidoRequest request, Authentication authentication) {
@@ -57,6 +59,8 @@ public class ContenidoService {
                 contenidos.add(limitarPosicion(posicion, contenidos.size() + 1) - 1, contenido);
                 renumerar(contenidos);
                 contenidoRepository.saveAll(contenidos);
+                notificacionService.notificarInscritos(curso, TipoNotificacion.NUEVO_CONTENIDO,
+                                "Nuevo contenido en " + curso.getTitulo(), contenido.getTitulo(), contenido.getId());
                 return contenidoMapper.toResponse(contenido);
         }
 
@@ -81,6 +85,8 @@ public class ContenidoService {
                 } else {
                         contenidoRepository.save(contenido);
                 }
+                notificacionService.notificarInscritos(contenido.getCurso(), TipoNotificacion.CONTENIDO_ACTUALIZADO,
+                                "Contenido actualizado", contenido.getTitulo(), contenido.getId());
                 return contenidoMapper.toResponse(contenido);
         }
 

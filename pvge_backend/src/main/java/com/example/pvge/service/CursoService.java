@@ -15,6 +15,7 @@ import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.InscripcionCurso;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
+import com.example.pvge.model.TipoNotificacion;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.CursoRepository;
 import com.example.pvge.repository.EstudianteRepository;
@@ -33,6 +34,7 @@ public class CursoService {
         private final InstructorRepository instructorRepository;
         private final EstudianteRepository estudianteRepository;
         private final CursoMapper cursoMapper;
+        private final NotificacionService notificacionService;
 
         @Transactional
         public CursoResponse addCurso(CursoRequest request, Authentication authentication) {
@@ -67,6 +69,8 @@ public class CursoService {
                 curso.setTitulo(request.getTitulo());
                 curso.setDescripcion(request.getDescripcion());
                 cursoRepository.save(curso);
+                notificacionService.notificarInscritos(curso, TipoNotificacion.CURSO_ACTUALIZADO,
+                                "Curso actualizado", "El curso " + curso.getTitulo() + " tiene cambios", curso.getId());
                 return cursoMapper.toResponse(curso);
         }
 
