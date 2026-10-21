@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshing.current = (async () => {
       try {
         const rt = await AsyncStorage.getItem("refreshToken");
-        if (!rt) throw new Error("Sin refresh token");
+        if (!rt) return null;
 
         const res = await fetch(`${API}/auth/refresh`, {
           method: "POST",
@@ -140,14 +140,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const [t, r] = await Promise.all([
+        const [t, r, rt] = await Promise.all([
           AsyncStorage.getItem("accessToken"),
           AsyncStorage.getItem("role"),
+          AsyncStorage.getItem("refreshToken"),
         ]);
+
+        if (!t && !rt) return;
 
         let token = t;
         if (!token || expiraPronto(token)) {
-          // refresh() limpia la sesión si falla
           token = await refresh();
         } else {
           accessRef.current = token;

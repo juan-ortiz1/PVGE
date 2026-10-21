@@ -41,6 +41,8 @@ type Progreso = {
   cursoTitulo: string;
   evaluacionesTotales: number;
   evaluacionesCompletadas: number;
+  tareasTotales: number | null;
+  tareasCompletadas: number | null;
   porcentajeCompletado: number;
   puntajeObtenido: number;
   puntajeTotal: number;
@@ -433,6 +435,8 @@ export default function Home() {
             const inicial =
               item.instructor?.nombre?.charAt(0)?.toUpperCase() ?? "?";
             const p = item.inscrito ? progMap[item.id] : undefined;
+            const items =
+              (p?.tareasTotales ?? 0) + (p?.evaluacionesTotales ?? 0);
 
             return (
               <Pressable
@@ -513,12 +517,14 @@ export default function Home() {
                     {item.descripcion}
                   </Text>
 
-                  {p && p.evaluacionesTotales > 0 && (
+                  {p && items > 0 && (
                     <View className="mt-4">
                       <View className="flex-row items-center justify-between mb-1.5">
                         <Text className="text-gray-500 text-xs">
-                          {p.evaluacionesCompletadas}/{p.evaluacionesTotales}{" "}
-                          evaluaciones
+                          {p.tareasCompletadas ?? 0}/{p.tareasTotales ?? 0}{" "}
+                          tareas · {p.evaluacionesCompletadas}/
+                          {p.evaluacionesTotales}
+                          evaluaciones.
                         </Text>
                         <Text className={`text-xs font-bold ${color.text}`}>
                           {pct(p.porcentajeCompletado)}%

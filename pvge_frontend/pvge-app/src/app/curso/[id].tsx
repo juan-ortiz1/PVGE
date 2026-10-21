@@ -35,11 +35,13 @@ type Contenido = {
   descripcion: string;
   orden: number;
 };
+type EstadoTarea = "PENDIENTE" | "ENTREGADA" | "VENCIDA";
 type Tarea = {
   id: number;
   titulo: string;
   descripcion: string;
   fechaEntrega: string;
+  estado?: EstadoTarea | null;
 };
 type Curso = {
   id: number;
@@ -48,18 +50,17 @@ type Curso = {
   instructor: { nombre: string };
   inscrito: boolean;
 };
+type EstadoEval = "PENDIENTE" | "APROBADA" | "REPROBADA";
 type Evaluacion = {
   id: number;
   titulo: string;
   descripcion: string;
   fechaPublicacion: string;
   fechaVencimiento: string;
-  puntajeTotal?: number;
+  puntajeTotal?: number | null;
   preguntas?: { puntaje: number }[];
-};
-type ProgCurso = {
-  evaluacionesTotales: number;
-  evaluacionesCompletadas: number;
+  estado?: EstadoEval | null;
+  puntajeObtenido?: number | null;
 };
 type Tab = "contenidos" | "tareas" | "evaluaciones";
 
@@ -144,6 +145,7 @@ export default function CursoDetalle() {
     inscrito: string;
   }>();
   const { accessToken, authFetch, role, ready } = useAuth();
+  const logueado = !!accessToken;
 
   const [curso, setCurso] = useState<Curso | null>(null);
   const [tab, setTab] = useState<Tab>("contenidos");
@@ -159,7 +161,6 @@ export default function CursoDetalle() {
   const [confirmar, setConfirmar] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [leaveModal, setLeaveModal] = useState(false);
-  const [progCurso, setProgCurso] = useState<ProgCurso | null>(null);
   const [entregando, setEntregando] = useState<number | null>(null);
   // Solo en memoria: el backend no devuelve la entrega al listar tareas
   const [entregadas, setEntregadas] = useState<number[]>([]);
@@ -190,7 +191,7 @@ export default function CursoDetalle() {
 
       if (!resCurso.ok)
         throw new Error(`Error ${resCurso.status} al cargar el curso`);
-      setCurso(await resCurso.json());
+      setCurso(parse(await resCurso.text()));
 
       const dataC = parse(await resC.text());
       setContenidos(Array.isArray(dataC) ? dataC : []);
@@ -201,12 +202,6 @@ export default function CursoDetalle() {
       setEvaluaciones(resE.ok && Array.isArray(dataE) ? dataE : []);
       setErrorEval(resE.ok ? null : (dataE?.message ?? `Error ${resE.status}`));
 
-      if (esEstudiante) {
-        const resP = await fetch(`${API}/progreso/cursos/${id}`).catch(
-          () => null,
-        );
-        setProgCurso(resP?.ok ? parse(await resP.text()) : null);
-      }
       setError(null);
     } catch (e: any) {
       console.error(e);
@@ -219,12 +214,12 @@ export default function CursoDetalle() {
   useFocusEffect(
     useCallback(() => {
       if (!ready) return;
-      if (!accessToken) {
+      if (!logueado) {
         router.replace("/");
         return;
       }
       fetchAll();
-    }, [ready, accessToken]),
+    }, [id, ready, logueado]),
   );
 
   // ---------- Estudiante ----------
@@ -292,26 +287,13 @@ export default function CursoDetalle() {
       if (!res.ok) throw new Error(data?.message ?? `Error ${res.status}`);
 
       setEntregadas((p) => (p.includes(tareaId) ? p : [...p, tareaId]));
+      await fetchAll();
     } catch (e: any) {
       setMsgTarea(e.message);
     } finally {
       setEntregando(null);
     }
   };
-
-  // true = hecha, false = no hecha, null = no se puede saber
-  const hechaDe = (): boolean | null => {
-    if (!esEstudiante || !progCurso) return null;
-    if (progCurso.evaluacionesCompletadas === 0) return false;
-    if (progCurso.evaluacionesCompletadas >= evaluaciones.length) return true;
-    return null;
-  };
-
-  const hayAmbiguas =
-    esEstudiante &&
-    !!progCurso &&
-    progCurso.evaluacionesCompletadas > 0 &&
-    progCurso.evaluacionesCompletadas < evaluaciones.length;
 
   // ---------- Instructor: contenido ----------
   const abrirEditCont = (c: Contenido) => {
@@ -329,9 +311,7 @@ export default function CursoDetalle() {
       // El request usa "titulo"; la respuesta devuelve "nombre"
       const res = await authFetch(`${API}/contenidos/${editCont.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           titulo: nombreEdit.trim(),
           descripcion: descEdit.trim(),
@@ -356,7 +336,10 @@ export default function CursoDetalle() {
       const res = await authFetch(`${API}/contenidos/${delCont.id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error(`Error ${res.status} al eliminar`);
+      if (!res.ok) {
+        const data = parse(await res.text());
+        throw new Error(data?.message ?? `Error ${res.status} al eliminar`);
+      }
       setContenidos((p) => p.filter((c) => c.id !== delCont.id));
     } catch (e: any) {
       setMsgCont(e.message);
@@ -383,7 +366,7 @@ export default function CursoDetalle() {
     return [...proximas, ...vencidas];
   }, [tareas]);
 
-  const Header = () => (
+  const header = (
     <View className={`${theme.header} px-6 pt-14 pb-10 rounded-b-[32px]`}>
       <View className="flex-row items-center justify-between mb-4">
         <Pressable
@@ -434,7 +417,7 @@ export default function CursoDetalle() {
   if (!loading && esEstudiante && curso && !inscritoLocal) {
     return (
       <View className="flex-1 bg-gray-50">
-        <Header />
+        {header}
         <View className="flex-1 items-center justify-center px-10">
           <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center">
             <Lock size={28} color="#6b7280" />
@@ -487,7 +470,7 @@ export default function CursoDetalle() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <Header />
+      {header}
 
       {/* Tabs */}
       <View className="flex-row mx-6 -mt-4 bg-white rounded-2xl p-1.5 shadow-sm">
@@ -509,20 +492,28 @@ export default function CursoDetalle() {
         ))}
       </View>
 
-      {/* Agregar (instructor) */}
+      {/* Acciones (instructor) */}
       {esInstructor && (
-        <View className="px-6 mt-4">
+        <View className="px-6 mt-4 flex-row gap-3">
           <Pressable
             onPress={() =>
               router.push(
                 `/instructorPage/${rutaCrear}?cursoId=${id}&t=${themeIdx}` as any,
               )
             }
-            className={`h-11 bg-white border ${theme.soft.replace("bg-", "border-")} items-center justify-center rounded-xl`}
+            className="flex-1 h-11 bg-white border border-gray-200 items-center justify-center rounded-xl"
           >
             <Text className={`${theme.text} font-bold text-sm`}>
               + Agregar {nombreTab}
             </Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              router.push(`/curso/estudiantes/${id}?t=${themeIdx}` as any)
+            }
+            className={`${theme.header} h-11 px-5 items-center justify-center rounded-xl`}
+          >
+            <Text className="text-white font-bold text-sm">Estudiantes</Text>
           </Pressable>
         </View>
       )}
@@ -617,8 +608,25 @@ export default function CursoDetalle() {
           )}
           renderItem={({ item }) => {
             const est = estadoEntrega(item.fechaEntrega);
-            const vencida = est.label === "Vencida";
-            const entregada = entregadas.includes(item.id);
+            const entregada =
+              item.estado === "ENTREGADA" || entregadas.includes(item.id);
+            const vencida =
+              !entregada &&
+              (item.estado === "VENCIDA" || est.label === "Vencida");
+
+            const chip = entregada
+              ? {
+                  label: "Entregada",
+                  chip: "bg-green-50",
+                  text: "text-green-700",
+                }
+              : item.estado === "VENCIDA"
+                ? {
+                    label: "No entregada",
+                    chip: "bg-red-50",
+                    text: "text-red-700",
+                  }
+                : est;
             return (
               <View
                 className="bg-white rounded-2xl p-4 mb-3 border border-gray-100"
@@ -638,16 +646,16 @@ export default function CursoDetalle() {
                       Entrega: {fmtFecha(item.fechaEntrega)}
                     </Text>
                   </View>
-                  {est.label && (
-                    <View className={`${est.chip} px-2 py-0.5 rounded-full`}>
-                      <Text className={`${est.text} text-[11px] font-bold`}>
-                        {est.label}
+                  {chip.label && (
+                    <View className={`${chip.chip} px-2 py-0.5 rounded-full`}>
+                      <Text className={`${chip.text} text-[11px] font-bold`}>
+                        {chip.label}
                       </Text>
                     </View>
                   )}
                 </View>
 
-                {esEstudiante && !vencida && (
+                {esEstudiante && !vencida && est.label !== "Vencida" && (
                   <Pressable
                     onPress={() => entregar(item.id)}
                     disabled={entregando === item.id}
@@ -684,17 +692,6 @@ export default function CursoDetalle() {
           contentContainerClassName="p-6"
           refreshing={loading}
           onRefresh={fetchAll}
-          ListHeaderComponent={
-            hayAmbiguas ? (
-              <View className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-3">
-                <Text className="text-amber-800 text-xs">
-                  Completaste {progCurso?.evaluacionesCompletadas} de{" "}
-                  {progCurso?.evaluacionesTotales} evaluaciones. El sistema no
-                  indica cuáles.
-                </Text>
-              </View>
-            ) : null
-          }
           ListEmptyComponent={
             errorEval
               ? vacio(ClipboardCheck, errorEval)
@@ -709,30 +706,26 @@ export default function CursoDetalle() {
             const ahora = Date.now();
             const pendiente = new Date(item.fechaPublicacion).getTime() > ahora;
             const vencida = new Date(item.fechaVencimiento).getTime() < ahora;
-            const hecha = hechaDe();
+            const est = esEstudiante ? item.estado : null;
+
+            const [estado, estadoCls] =
+              est === "APROBADA"
+                ? ["Aprobada", "bg-green-50 text-green-700"]
+                : est === "REPROBADA"
+                  ? ["Reprobada", "bg-red-50 text-red-700"]
+                  : est === "PENDIENTE" && vencida
+                    ? ["No realizada", "bg-red-50 text-red-700"]
+                    : pendiente
+                      ? ["Próximamente", "bg-amber-50 text-amber-700"]
+                      : vencida
+                        ? ["Vencida", "bg-gray-100 text-gray-500"]
+                        : ["Disponible", "bg-green-50 text-green-700"];
+
+            const hecha = est === "APROBADA" || est === "REPROBADA";
             const total =
               item.puntajeTotal ??
               item.preguntas?.reduce((s, p) => s + p.puntaje, 0) ??
               0;
-
-            const estado = hecha
-              ? "Completada"
-              : hecha === false && vencida
-                ? "No realizada"
-                : pendiente
-                  ? "Próximamente"
-                  : vencida
-                    ? "Vencida"
-                    : "Disponible";
-            const estadoCls = hecha
-              ? "bg-green-50 text-green-700"
-              : hecha === false && vencida
-                ? "bg-red-50 text-red-700"
-                : pendiente
-                  ? "bg-amber-50 text-amber-700"
-                  : vencida
-                    ? "bg-gray-100 text-gray-500"
-                    : "bg-green-50 text-green-700";
 
             return (
               <Pressable
@@ -768,7 +761,10 @@ export default function CursoDetalle() {
                     </Text>
                   </View>
                   {total > 0 && (
-                    <Text className="text-gray-400 text-xs">{total} pts</Text>
+                    <Text className="text-gray-400 text-xs">
+                      {hecha ? `${item.puntajeObtenido ?? 0}/${total}` : total}{" "}
+                      pts
+                    </Text>
                   )}
                 </View>
               </Pressable>

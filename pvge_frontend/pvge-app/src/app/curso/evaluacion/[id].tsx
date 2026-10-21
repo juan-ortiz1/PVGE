@@ -10,6 +10,7 @@ import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import {
   ArrowLeft,
   CheckCircle2,
+  XCircle,
   Circle,
   Calendar,
   Trophy,
@@ -75,6 +76,7 @@ const THEMES = [
   },
 ];
 
+type EstadoEval = "PENDIENTE" | "APROBADA" | "REPROBADA";
 type Opcion = { id: number; texto: string; correcta?: boolean };
 type Pregunta = {
   id: number;
@@ -87,10 +89,16 @@ type Evaluacion = {
   titulo: string;
   descripcion: string;
   fechaVencimiento: string;
-  puntajeTotal?: number;
+  puntajeTotal?: number | null;
+  estado?: EstadoEval | null;
+  puntajeObtenido?: number | null;
   preguntas: Pregunta[];
 };
-type Resultado = { puntajeObtenido: number; puntajeTotal: number };
+type Resultado = {
+  puntajeObtenido: number;
+  puntajeTotal: number;
+  estado?: EstadoEval | null;
+};
 
 const parse = (t: string) => {
   try {
@@ -100,31 +108,38 @@ const parse = (t: string) => {
   }
 };
 
-const resultadoStyle = (pct: number) =>
-  pct >= 70
-    ? {
-        ring: "bg-green-100",
-        hex: "#15803d",
-        text: "text-green-700",
-        msg: "¡Excelente trabajo!",
-      }
-    : pct >= 50
-      ? {
-          ring: "bg-amber-100",
-          hex: "#b45309",
-          text: "text-amber-700",
-          msg: "Buen intento",
-        }
-      : {
-          ring: "bg-red-100",
-          hex: "#b91c1c",
-          text: "text-red-700",
-          msg: "Sigue practicando",
-        };
+// Estilo del resultado: usa el estado del backend; si no llega, umbrales por porcentaje
+const resultadoStyle = (estado: EstadoEval | null | undefined, pct: number) => {
+  const aprobada =
+    estado === "APROBADA" || (estado !== "REPROBADA" && pct >= 70);
+  const reprobada =
+    estado === "REPROBADA" || (estado !== "APROBADA" && pct < 50);
+  if (estado === "APROBADA" || (!estado && aprobada))
+    return {
+      ring: "bg-green-100",
+      hex: "#15803d",
+      text: "text-green-700",
+      msg: "¡Aprobada!",
+    };
+  if (estado === "REPROBADA" || (!estado && reprobada))
+    return {
+      ring: "bg-red-100",
+      hex: "#b91c1c",
+      text: "text-red-700",
+      msg: "Reprobada",
+    };
+  return {
+    ring: "bg-amber-100",
+    hex: "#b45309",
+    text: "text-amber-700",
+    msg: "Buen intento",
+  };
+};
 
 export default function EvaluacionDetalle() {
   const { id, t } = useLocalSearchParams<{ id: string; t?: string }>();
   const { accessToken, authFetch, role, ready } = useAuth();
+  const logueado = !!accessToken;
 
   const theme =
     THEMES[Number(t) >= 0 && Number(t) < THEMES.length ? Number(t) : 0];
@@ -142,7 +157,7 @@ export default function EvaluacionDetalle() {
   useFocusEffect(
     useCallback(() => {
       if (!ready) return;
-      if (!accessToken) {
+      if (!logueado) {
         router.replace("/");
         return;
       }
@@ -160,7 +175,7 @@ export default function EvaluacionDetalle() {
           setLoading(false);
         }
       })();
-    }, [id, ready, accessToken]),
+    }, [id, ready, logueado]),
   );
 
   const preguntas = ev?.preguntas ?? [];
@@ -171,7 +186,9 @@ export default function EvaluacionDetalle() {
   const vencida = ev
     ? new Date(ev.fechaVencimiento).getTime() < Date.now()
     : false;
-  const bloqueada = !esEstudiante || vencida || yaRespondida;
+  const yaHecha =
+    esEstudiante && (ev?.estado === "APROBADA" || ev?.estado === "REPROBADA");
+  const bloqueada = !esEstudiante || vencida || yaRespondida || yaHecha;
 
   const enviar = async () => {
     setEnviando(true);
@@ -179,9 +196,7 @@ export default function EvaluacionDetalle() {
     try {
       const res = await authFetch(`${API}/evaluaciones/${id}/responder`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           respuestas: Object.entries(respuestas).map(([p, o]) => ({
             preguntaId: Number(p),
@@ -267,12 +282,12 @@ export default function EvaluacionDetalle() {
       </View>
     );
 
-  // Resultado final
+  // Resultado recién enviado
   if (resultado) {
     const pct = resultado.puntajeTotal
       ? Math.round((resultado.puntajeObtenido / resultado.puntajeTotal) * 100)
       : 0;
-    const s = resultadoStyle(pct);
+    const s = resultadoStyle(resultado.estado, pct);
     return (
       <View className="flex-1 bg-gray-50">
         {header}
@@ -290,7 +305,7 @@ export default function EvaluacionDetalle() {
           </Text>
           <Pressable
             onPress={() => router.back()}
-            className={`${theme.btn} h-11 px-8 items-center justify-center rounded-xl mt-8`}
+            className={`${theme.btn} h-11 px-8 items-center justify-center rounded-xl mt-6`}
           >
             <Text className="text-white font-bold">Volver al curso</Text>
           </Pressable>
@@ -299,18 +314,37 @@ export default function EvaluacionDetalle() {
     );
   }
 
-  // Ya respondida (el backend permite un solo intento)
-  if (yaRespondida)
+  // Ya la hizo antes (el backend permite un solo intento)
+  if (yaRespondida || yaHecha) {
+    const reprobada = ev.estado === "REPROBADA";
+    const conNota = ev.estado === "APROBADA" || reprobada;
     return (
       <View className="flex-1 bg-gray-50">
         {header}
         <View className="flex-1 items-center justify-center px-10">
-          <View className="w-16 h-16 rounded-full bg-green-100 items-center justify-center">
-            <CheckCircle2 size={30} color="#15803d" />
+          <View
+            className={`w-20 h-20 rounded-full items-center justify-center ${
+              reprobada ? "bg-red-100" : "bg-green-100"
+            }`}
+          >
+            {reprobada ? (
+              <XCircle size={34} color="#b91c1c" />
+            ) : (
+              <CheckCircle2 size={34} color="#15803d" />
+            )}
           </View>
           <Text className="text-gray-900 font-bold text-lg mt-4 text-center">
-            Ya completaste esta evaluación
+            {conNota
+              ? reprobada
+                ? "Evaluación reprobada"
+                : "Evaluación aprobada"
+              : "Ya completaste esta evaluación"}
           </Text>
+          {ev.puntajeObtenido != null && (
+            <Text className="text-gray-900 text-3xl font-bold mt-2">
+              {ev.puntajeObtenido} / {total}
+            </Text>
+          )}
           <Text className="text-gray-600 text-sm mt-1 text-center">
             Solo se permite un intento por estudiante
           </Text>
@@ -323,6 +357,7 @@ export default function EvaluacionDetalle() {
         </View>
       </View>
     );
+  }
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -335,41 +370,41 @@ export default function EvaluacionDetalle() {
       )}
 
       {!esEstudiante && (
-        <View className="mx-6 mt-4 bg-gray-100 rounded-xl px-4 py-3 flex-row items-center">
-          <Eye size={16} color="#4b5563" />
-          <Text className="text-gray-700 text-xs ml-2 flex-1">
-            Vista previa: solo los estudiantes pueden responder
-          </Text>
+        <View className="mx-6 mt-4 bg-white rounded-2xl p-4 border border-gray-100">
+          <View className="flex-row">
+            <View className="flex-1 items-center">
+              <Text className="text-gray-900 text-xl font-bold">
+                {preguntas.length}
+              </Text>
+              <Text className="text-gray-500 text-xs">Preguntas</Text>
+            </View>
+            <View className="flex-1 items-center">
+              <Text className="text-gray-900 text-xl font-bold">{total}</Text>
+              <Text className="text-gray-500 text-xs">Puntos</Text>
+            </View>
+            <View className="flex-1 items-center">
+              <Text
+                className={`text-xl font-bold ${vencida ? "text-red-600" : "text-green-700"}`}
+              >
+                {vencida ? "Cerrada" : "Abierta"}
+              </Text>
+              <Text className="text-gray-500 text-xs">Estado</Text>
+            </View>
+          </View>
+          <View className="flex-row items-center mt-3 pt-3 border-t border-gray-100">
+            <Eye size={14} color="#4b5563" />
+            <Text className="text-gray-600 text-xs ml-2 flex-1">
+              Vista previa: solo los estudiantes pueden responder
+            </Text>
+          </View>
         </View>
       )}
+
       {esEstudiante && vencida && (
         <View className="mx-6 mt-4 bg-red-50 rounded-xl px-4 py-3">
           <Text className="text-red-700 text-xs">
             Esta evaluación ya venció y no admite respuestas
           </Text>
-        </View>
-      )}
-
-      {!esEstudiante && (
-        <View className="mx-6 mt-4 bg-white rounded-2xl p-4 border border-gray-100 flex-row">
-          <View className="flex-1 items-center">
-            <Text className="text-gray-900 text-xl font-bold">
-              {preguntas.length}
-            </Text>
-            <Text className="text-gray-500 text-xs">Preguntas</Text>
-          </View>
-          <View className="flex-1 items-center">
-            <Text className="text-gray-900 text-xl font-bold">{total}</Text>
-            <Text className="text-gray-500 text-xs">Puntos</Text>
-          </View>
-          <View className="flex-1 items-center">
-            <Text
-              className={`text-xl font-bold ${vencida ? "text-red-600" : "text-green-700"}`}
-            >
-              {vencida ? "Cerrada" : "Abierta"}
-            </Text>
-            <Text className="text-gray-500 text-xs">Estado</Text>
-          </View>
         </View>
       )}
 
