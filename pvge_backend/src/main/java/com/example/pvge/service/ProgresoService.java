@@ -107,13 +107,14 @@ public class ProgresoService {
                                                                 i.getEvaluacion().getId())))
                                 .toList();
 
-                Set<Integer> evaluacionesCompletadasIds = intentos.stream()
+                Set<Integer> evaluacionesAprobadasIds = intentos.stream()
+                                .filter(this::intentoAprobado)
                                 .map(i -> i.getEvaluacion().getId())
                                 .collect(Collectors.toSet());
 
                 int evaluacionesTotales = evaluaciones.size();
                 int evaluacionesCompletadas = (int) evaluaciones.stream()
-                                .filter(e -> evaluacionesCompletadasIds.contains(e.getId()))
+                                .filter(e -> evaluacionesAprobadasIds.contains(e.getId()))
                                 .count();
                 int evaluacionesPendientes = evaluacionesTotales - evaluacionesCompletadas;
                 int actividadesTotales = tareasTotales + evaluacionesTotales;
@@ -121,6 +122,10 @@ public class ProgresoService {
                 double porcentaje = actividadesTotales == 0
                                 ? 0.0
                                 : actividadesCompletadas * 100.0 / actividadesTotales;
+                boolean certificadoDisponible = actividadesTotales > 0
+                                && evaluacionesTotales > 0
+                                && tareasCompletadas == tareasTotales
+                                && evaluacionesCompletadas == evaluacionesTotales;
                 int puntajeObtenido = intentos.stream()
                                 .mapToInt(i -> i.getPuntajeObtenido() == null
                                                 ? 0
@@ -142,6 +147,7 @@ public class ProgresoService {
                                 .evaluacionesPendientes(evaluacionesPendientes)
                                 .porcentajeCompletado(
                                                 Math.round(porcentaje * 100.0) / 100.0)
+                                .certificadoDisponible(certificadoDisponible)
                                 .puntajeObtenido(puntajeObtenido)
                                 .puntajeTotal(puntajeTotal)
                                 .build();
@@ -178,11 +184,22 @@ public class ProgresoService {
                                                         .evaluacionesCompletadas(progreso.getEvaluacionesCompletadas())
                                                         .evaluacionesPendientes(progreso.getEvaluacionesPendientes())
                                                         .porcentajeCompletado(progreso.getPorcentajeCompletado())
+                                                        .certificadoDisponible(progreso.isCertificadoDisponible())
                                                         .puntajeObtenido(progreso.getPuntajeObtenido())
                                                         .puntajeTotal(progreso.getPuntajeTotal())
                                                         .build();
                                 })
                                 .toList();
+        }
+
+        private boolean intentoAprobado(IntentoEvaluacion intento) {
+                Integer puntajeObtenido = intento.getPuntajeObtenido();
+                Integer puntajeTotal = intento.getPuntajeTotal();
+                return puntajeObtenido != null
+                                && puntajeTotal != null
+                                && puntajeTotal > 0
+                                && (long) puntajeObtenido * 100
+                                                >= (long) puntajeTotal * porcentajeAprobacion;
         }
 
         @Transactional(readOnly = true)

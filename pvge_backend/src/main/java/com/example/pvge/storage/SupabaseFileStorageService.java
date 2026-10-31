@@ -36,28 +36,28 @@ public class SupabaseFileStorageService implements FileStorageService {
     @Override
     public String upload(MultipartFile archivo, String carpeta) {
         try {
-            String nombreArchivo = UUID.randomUUID() + "_" + archivo.getOriginalFilename();
-            String path = carpeta + "/" + nombreArchivo;
-            restClient.post()
-                    .uri("/storage/v1/object/{bucket}/{path}", bucket, path)
-                    .header("Authorization", "Bearer " + supabaseKey)
-                    .header("apikey", supabaseKey)
-                    .contentType(
-                            MediaType.parseMediaType(
-                                    archivo.getContentType() != null
-                                            ? archivo.getContentType()
-                                            : MediaType.APPLICATION_OCTET_STREAM_VALUE))
-                    .body(archivo.getBytes())
-                    .retrieve()
-                    .toBodilessEntity();
-            return supabaseUrl
-                    + "/storage/v1/object/public/"
-                    + bucket
-                    + "/"
-                    + path;
+            String nombreArchivo = archivo.getOriginalFilename() == null
+                    ? "archivo"
+                    : archivo.getOriginalFilename();
+            return upload(archivo.getBytes(), nombreArchivo, archivo.getContentType(), carpeta);
         } catch (Exception e) {
             throw new RuntimeException("No se pudo subir el archivo", e);
         }
+    }
+
+    @Override
+    public String upload(byte[] contenido, String nombreArchivo, String contentType, String carpeta) {
+        String path = carpeta + "/" + UUID.randomUUID() + "_" + nombreArchivo;
+        restClient.post()
+                .uri("/storage/v1/object/{bucket}/{path}", bucket, path)
+                .header("Authorization", "Bearer " + supabaseKey)
+                .header("apikey", supabaseKey)
+                .contentType(MediaType.parseMediaType(
+                        contentType != null ? contentType : MediaType.APPLICATION_OCTET_STREAM_VALUE))
+                .body(contenido)
+                .retrieve()
+                .toBodilessEntity();
+        return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
     }
 
     @Override

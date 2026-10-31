@@ -25,6 +25,7 @@ public class ProgresoCursoResponse {
     private Integer evaluacionesPendientes;
 
     private double porcentajeCompletado;
+    private boolean certificadoDisponible;
 
     private Integer puntajeObtenido;
     private Integer puntajeTotal;
