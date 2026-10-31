@@ -82,6 +82,43 @@ public class TareaService {
                 return tareaMapper.toResponse(tarea);
         }
 
+        @Transactional
+        public TareaResponse actualizarTarea(Integer tareaId, TareaRequest request, Authentication authentication) {
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
+                Instructor instructor = findInstructorByUsuarioId(usuario.getId());
+                Tarea tarea = tareaRepository.findById(tareaId)
+                                .orElseThrow(() -> new RuntimeException("Tarea no encontrada"));
+                if (!esPropietarioCurso(instructor.getId(), tarea.getCurso())) {
+                        throw new RuntimeException("No puedes editar tareas de un curso que no es tuyo");
+                }
+                if (!tarea.getCurso().getId().equals(request.getCursoId())) {
+                        throw new RuntimeException("No puedes mover una tarea a otro curso");
+                }
+                if (request.getFechaEntrega() == null || !request.getFechaEntrega().isAfter(LocalDateTime.now())) {
+                        throw new RuntimeException("La fecha de entrega debe ser posterior a la fecha actual");
+                }
+                tarea.setTitulo(request.getTitulo());
+                tarea.setDescripcion(request.getDescripcion());
+                tarea.setFechaEntrega(request.getFechaEntrega());
+                return tareaMapper.toResponse(tareaRepository.save(tarea));
+        }
+
+        @Transactional
+        public void eliminarTarea(Integer tareaId, Authentication authentication) {
+                Usuario usuario = findUsuarioByCorreo(authentication.getName());
+                Instructor instructor = findInstructorByUsuarioId(usuario.getId());
+                Tarea tarea = tareaRepository.findById(tareaId)
+                                .orElseThrow(() -> new RuntimeException("Tarea no encontrada"));
+                if (!esPropietarioCurso(instructor.getId(), tarea.getCurso())) {
+                        throw new RuntimeException("No puedes eliminar tareas de un curso que no es tuyo");
+                }
+                if (entregaTareaRepository.existsByTareaId(tareaId)) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                        "No se puede eliminar una tarea que ya tiene entregas");
+                }
+                tareaRepository.delete(tarea);
+        }
+
         public TareaResponse getTareaById(Integer id, Authentication authentication) {
                 Usuario usuario = findUsuarioByCorreo(authentication.getName());
                 Tarea tarea = tareaRepository.findById(id)
@@ -90,9 +127,15 @@ public class TareaService {
                 TareaResponse response = tareaMapper.toResponse(tarea);
                 if (usuario.getRol() == Rol.ESTUDIANTE) {
                         Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
-                        boolean entregada = entregaTareaRepository.existsByTareaIdAndEstudianteId(id,
-                                        estudiante.getId());
-                        response.setEstado(calcularEstado(tarea, entregada));
+                        EntregaTarea entrega = entregaTareaRepository
+                                        .findByTareaIdAndEstudianteId(id, estudiante.getId())
+                                        .orElse(null);
+                        response.setEstado(calcularEstado(tarea, entrega != null));
+                        if (entrega != null) {
+                                response.setCalificacion(entrega.getCalificacion());
+                                response.setObservaciones(entrega.getObservaciones());
+                                response.setFechaCalificacion(entrega.getFechaCalificacion());
+                        }
                 }
                 return response;
         }
@@ -106,13 +149,25 @@ public class TareaService {
                         return tareas.stream().map(tareaMapper::toResponse).toList();
                 }
                 Estudiante estudiante = findEstudianteByUsuarioId(usuario.getId());
-                Set<Integer> tareasEntregadas = entregaTareaRepository
-                                .findByEstudianteIdAndTareaCursoId(estudiante.getId(), cursoId).stream()
+                var entregas = entregaTareaRepository
+                                .findByEstudianteIdAndTareaCursoId(estudiante.getId(), cursoId);
+                Set<Integer> tareasEntregadas = entregas.stream()
                                 .map(entrega -> entrega.getTarea().getId())
                                 .collect(Collectors.toSet());
+                var entregasPorTarea = entregas.stream()
+                                .collect(Collectors.toMap(
+                                                entrega -> entrega.getTarea().getId(),
+                                                entrega -> entrega,
+                                                (primera, segunda) -> segunda));
                 return tareas.stream().map(tarea -> {
                         TareaResponse response = tareaMapper.toResponse(tarea);
+                        var entrega = entregasPorTarea.get(tarea.getId());
                         response.setEstado(calcularEstado(tarea, tareasEntregadas.contains(tarea.getId())));
+                        if (entrega != null) {
+                                response.setCalificacion(entrega.getCalificacion());
+                                response.setObservaciones(entrega.getObservaciones());
+                                response.setFechaCalificacion(entrega.getFechaCalificacion());
+                        }
                         return response;
                 }).toList();
         }
@@ -194,7 +249,8 @@ public class TareaService {
                         throw new RuntimeException("No puedes calificar entregas de un curso que no es tuyo.");
                 }
                 BigDecimal calificacion = request.getCalificacion();
-                if (calificacion.compareTo(BigDecimal.valueOf(0.0)) < 0
+                if (calificacion == null
+                                || calificacion.compareTo(BigDecimal.valueOf(0.0)) < 0
                                 || calificacion.compareTo(BigDecimal.valueOf(5.0)) > 0) {
                         throw new RuntimeException("La calificación debe estar entre 0.0 y 5.0");
                 }

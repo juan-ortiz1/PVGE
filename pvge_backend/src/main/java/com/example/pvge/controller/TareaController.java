@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -45,6 +46,18 @@ public class TareaController {
     public ResponseEntity<TareaResponse> crearTarea(@RequestBody TareaRequest request,
             Authentication authentication) {
         return ResponseEntity.ok(tareaService.crearTarea(request, authentication));
+    }
+
+    @PutMapping("/{tareaId}")
+    public ResponseEntity<TareaResponse> actualizarTarea(@PathVariable Integer tareaId,
+            @RequestBody TareaRequest request, Authentication authentication) {
+        return ResponseEntity.ok(tareaService.actualizarTarea(tareaId, request, authentication));
+    }
+
+    @DeleteMapping("/{tareaId}")
+    public ResponseEntity<Void> eliminarTarea(@PathVariable Integer tareaId, Authentication authentication) {
+        tareaService.eliminarTarea(tareaId, authentication);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping(value = "/{tareaId}/entregas", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

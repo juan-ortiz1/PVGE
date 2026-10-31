@@ -8,6 +8,8 @@ import com.example.pvge.model.IntentoEvaluacion;
 
 public interface IntentoEvaluacionRepository extends JpaRepository<IntentoEvaluacion, Integer> {
     boolean existsByEstudianteIdAndEvaluacionId(Integer estudianteId, Integer evaluacionId);
+    boolean existsByEvaluacionId(Integer evaluacionId);
+    List<IntentoEvaluacion> findByEvaluacionId(Integer evaluacionId);
     List<IntentoEvaluacion> findByEstudianteId(Integer estudianteId);
     List<IntentoEvaluacion> findByEstudianteIdAndEvaluacionId(Integer estudianteId, Integer evaluacionId);
 }

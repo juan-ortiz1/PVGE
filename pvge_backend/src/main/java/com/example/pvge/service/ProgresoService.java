@@ -1,6 +1,8 @@
 package com.example.pvge.service;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -8,9 +10,12 @@ import java.util.stream.Collectors;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import com.example.pvge.dto.progreso.ProgresoCursoResponse;
 import com.example.pvge.dto.progreso.ProgresoEstudianteResponse;
+import com.example.pvge.dto.progreso.EstadisticasCursoResponse;
+import com.example.pvge.model.EntregaTarea;
 import com.example.pvge.model.Curso;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Evaluacion;
@@ -35,6 +40,9 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class ProgresoService {
+        @Value("${evaluacion.porcentaje-aprobacion:60}")
+        private int porcentajeAprobacion;
+
         private final EstudianteRepository estudianteRepository;
         private final InstructorRepository instructorRepository;
         private final CursoRepository cursoRepository;
@@ -175,6 +183,79 @@ public class ProgresoService {
                                                         .build();
                                 })
                                 .toList();
+        }
+
+        @Transactional(readOnly = true)
+        public EstadisticasCursoResponse obtenerEstadisticasCurso(Integer cursoId, Authentication authentication) {
+                validarInstructorDelCurso(cursoId, authentication);
+                List<EntregaTarea> entregas = entregaTareaRepository.findByTareaCursoId(cursoId);
+                List<EntregaTarea> calificadas = entregas.stream()
+                                .filter(entrega -> entrega.getCalificacion() != null)
+                                .toList();
+                BigDecimal promedioTareas = promedio(calificadas.stream()
+                                .map(EntregaTarea::getCalificacion)
+                                .toList());
+
+                List<Evaluacion> evaluaciones = evaluacionRepository.findByCursoId(cursoId);
+                List<IntentoEvaluacion> intentosCurso = evaluaciones.stream()
+                                .flatMap(evaluacion -> intentoEvaluacionRepository
+                                                .findByEvaluacionId(evaluacion.getId()).stream())
+                                .toList();
+                int aprobadas = (int) intentosCurso.stream()
+                                .filter(intento -> intento.getPuntajeTotal() != null
+                                                && intento.getPuntajeTotal() > 0
+                                                && intento.getPuntajeObtenido() != null
+                                                && (long) intento.getPuntajeObtenido() * 100
+                                                                >= (long) intento.getPuntajeTotal()
+                                                                                * porcentajeAprobacion)
+                                .count();
+                BigDecimal promedioEvaluaciones = promedio(intentosCurso.stream()
+                                .filter(intento -> intento.getPuntajeTotal() != null
+                                                && intento.getPuntajeTotal() > 0
+                                                && intento.getPuntajeObtenido() != null)
+                                .map(intento -> BigDecimal.valueOf(intento.getPuntajeObtenido() * 100.0)
+                                                .divide(BigDecimal.valueOf(intento.getPuntajeTotal()), 2,
+                                                                RoundingMode.HALF_UP))
+                                .toList());
+                BigDecimal porcentajeAprobacion = intentosCurso.isEmpty()
+                                ? BigDecimal.ZERO
+                                : BigDecimal.valueOf(aprobadas * 100.0 / intentosCurso.size())
+                                                .setScale(2, RoundingMode.HALF_UP);
+                return EstadisticasCursoResponse.builder()
+                                .totalEstudiantes(inscripcionCursoRepository.findByCursoId(cursoId).size())
+                                .totalTareas(tareaRepository.findByCursoIdOrderByFechaEntregaAsc(cursoId).size())
+                                .totalEntregas(entregas.size())
+                                .entregasCalificadas(calificadas.size())
+                                .promedioCalificacionTareas(promedioTareas)
+                                .totalEvaluaciones(evaluaciones.size())
+                                .intentosEvaluacion(intentosCurso.size())
+                                .evaluacionesAprobadas(aprobadas)
+                                .promedioEvaluacionesPorcentaje(promedioEvaluaciones)
+                                .porcentajeAprobacion(porcentajeAprobacion)
+                                .build();
+        }
+
+        private void validarInstructorDelCurso(Integer cursoId, Authentication authentication) {
+                Usuario usuario = usuarioRepository.findByCorreo(authentication.getName())
+                                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                if (usuario.getRol() != Rol.INSTRUCTOR) {
+                        throw new RuntimeException("Solo los instructores pueden consultar estadísticas del curso");
+                }
+                Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
+                                .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+                Curso curso = cursoRepository.findById(cursoId)
+                                .orElseThrow(() -> new RuntimeException("Curso no encontrado"));
+                if (!curso.getInstructor().getId().equals(instructor.getId())) {
+                        throw new RuntimeException("No puedes consultar estadísticas de un curso que no es tuyo");
+                }
+        }
+
+        private BigDecimal promedio(List<BigDecimal> valores) {
+                if (valores.isEmpty()) {
+                        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                }
+                BigDecimal total = valores.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+                return total.divide(BigDecimal.valueOf(valores.size()), 2, RoundingMode.HALF_UP);
         }
 
         private Estudiante obtenerEstudiante(Authentication authentication) {

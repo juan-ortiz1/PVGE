@@ -1,6 +1,7 @@
 package com.example.pvge.dto.tarea;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 import com.example.pvge.model.EstadoTarea;
 
@@ -19,4 +20,7 @@ public class TareaResponse {
     private LocalDateTime fechaEntrega;
     private Integer cursoId;
     private EstadoTarea estado;
+    private BigDecimal calificacion;
+    private String observaciones;
+    private LocalDateTime fechaCalificacion;
 }

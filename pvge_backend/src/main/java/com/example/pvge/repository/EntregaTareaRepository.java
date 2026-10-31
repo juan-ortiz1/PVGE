@@ -11,6 +11,7 @@ import com.example.pvge.model.EntregaTarea;
 public interface EntregaTareaRepository extends JpaRepository<EntregaTarea, Integer> {
     Optional<EntregaTarea> findByTareaIdAndEstudianteId(Integer tareaId, Integer estudianteId);
     boolean existsByTareaIdAndEstudianteId(Integer tareaId, Integer estudianteId);
+    boolean existsByTareaId(Integer tareaId);
     List<EntregaTarea> findByEstudianteIdAndTareaCursoId(Integer estudianteId, Integer cursoId);
     List<EntregaTarea> findByTareaIdOrderByFechaEntregaAsc(Integer tareaId);
 

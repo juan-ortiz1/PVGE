@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.pvge.dto.progreso.ProgresoCursoResponse;
 import com.example.pvge.dto.progreso.ProgresoEstudianteResponse;
+import com.example.pvge.dto.progreso.EstadisticasCursoResponse;
 import com.example.pvge.service.ProgresoService;
 
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,12 @@ public class ProgresoController {
     @GetMapping("/instructor/curso/{cursoId}")
     public ResponseEntity<List<ProgresoEstudianteResponse>> obtenerProgresoEstudiante(@PathVariable Integer cursoId, Authentication authentication) {
         return ResponseEntity.ok(progresoService.obtenerProgresoEstudiantes(cursoId, authentication));
+    }
+
+    @GetMapping("/instructor/curso/{cursoId}/estadisticas")
+    public ResponseEntity<EstadisticasCursoResponse> obtenerEstadisticasCurso(@PathVariable Integer cursoId,
+            Authentication authentication) {
+        return ResponseEntity.ok(progresoService.obtenerEstadisticasCurso(cursoId, authentication));
     }
 
 }

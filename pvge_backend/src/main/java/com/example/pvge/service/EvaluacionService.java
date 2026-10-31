@@ -8,8 +8,10 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.pvge.dto.evaluacion.EvaluacionRequest;
@@ -68,6 +70,7 @@ public class EvaluacionService {
 
         @Transactional
         public EvaluacionResponse crearEvaluacion(EvaluacionRequest request, Authentication authentication) {
+                validarSolicitud(request);
                 Usuario usuario = obtenerUsuarioByCorreo(authentication);
                 Instructor instructor = obtenerInstructor(usuario);
                 Curso curso = cursoRepository.findById(request.getCursoId())
@@ -107,6 +110,132 @@ public class EvaluacionService {
                 EvaluacionResponse response = evaluacionMapper.toResponse(evaluacion);
                 response.setPuntajeTotal(calcularPuntajeTotal(evaluacion));
                 return response;
+        }
+
+        @Transactional(readOnly = true)
+        public EvaluacionRequest obtenerParaEdicion(Integer id, Authentication authentication) {
+                Evaluacion evaluacion = obtenerEvaluacionPropia(id, authentication);
+                EvaluacionRequest request = new EvaluacionRequest();
+                request.setTitulo(evaluacion.getTitulo());
+                request.setDescripcion(evaluacion.getDescripcion());
+                request.setCursoId(evaluacion.getCurso().getId());
+                request.setFechaPublicacion(evaluacion.getFechaPublicacion());
+                request.setFechaVencimiento(evaluacion.getFechaVencimiento());
+                request.setPreguntas(evaluacion.getPreguntas().stream().map(pregunta -> {
+                        PreguntaRequest preguntaRequest = new PreguntaRequest();
+                        preguntaRequest.setEnunciado(pregunta.getEnunciado());
+                        preguntaRequest.setPuntaje(pregunta.getPuntaje());
+                        preguntaRequest.setOpciones(pregunta.getOpciones().stream().map(opcion -> {
+                                OpcionRequest opcionRequest = new OpcionRequest();
+                                opcionRequest.setTexto(opcion.getTexto());
+                                opcionRequest.setCorrecta(Boolean.TRUE.equals(opcion.getCorrecta()));
+                                return opcionRequest;
+                        }).toList());
+                        return preguntaRequest;
+                }).toList());
+                return request;
+        }
+
+        @Transactional
+        public EvaluacionResponse actualizarEvaluacion(Integer id, EvaluacionRequest request,
+                        Authentication authentication) {
+                validarSolicitud(request);
+                Evaluacion evaluacion = obtenerEvaluacionPropia(id, authentication);
+                if (!evaluacion.getCurso().getId().equals(request.getCursoId())) {
+                        throw new RuntimeException("No puedes mover una evaluación a otro curso");
+                }
+                if (intentoEvaluacionRepository.existsByEvaluacionId(id)) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                        "No se puede modificar una evaluación que ya tiene respuestas");
+                }
+                evaluacion.setTitulo(request.getTitulo());
+                evaluacion.setDescripcion(request.getDescripcion());
+                evaluacion.setFechaPublicacion(request.getFechaPublicacion());
+                evaluacion.setFechaVencimiento(request.getFechaVencimiento());
+                reemplazarPreguntas(evaluacion, request);
+                EvaluacionResponse response = evaluacionMapper.toResponse(evaluacion);
+                response.setPuntajeTotal(calcularPuntajeTotal(evaluacion));
+                return response;
+        }
+
+        @Transactional
+        public void eliminarEvaluacion(Integer id, Authentication authentication) {
+                Evaluacion evaluacion = obtenerEvaluacionPropia(id, authentication);
+                if (intentoEvaluacionRepository.existsByEvaluacionId(id)) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                        "No se puede eliminar una evaluación que ya tiene respuestas");
+                }
+                eliminarPreguntas(evaluacion);
+                evaluacionRepository.delete(evaluacion);
+        }
+
+        private Evaluacion obtenerEvaluacionPropia(Integer id, Authentication authentication) {
+                Usuario usuario = obtenerUsuarioByCorreo(authentication);
+                Instructor instructor = obtenerInstructor(usuario);
+                Evaluacion evaluacion = evaluacionRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Evaluación no encontrada"));
+                if (!evaluacion.getCurso().getInstructor().getId().equals(instructor.getId())) {
+                        throw new RuntimeException("No puedes administrar evaluaciones de un curso que no es tuyo");
+                }
+                return evaluacion;
+        }
+
+        private void reemplazarPreguntas(Evaluacion evaluacion, EvaluacionRequest request) {
+                eliminarPreguntas(evaluacion);
+                evaluacion.getPreguntas().clear();
+                for (PreguntaRequest preguntaRequest : request.getPreguntas()) {
+                        Pregunta pregunta = Pregunta.builder()
+                                        .enunciado(preguntaRequest.getEnunciado())
+                                        .puntaje(preguntaRequest.getPuntaje())
+                                        .evaluacion(evaluacion)
+                                        .build();
+                        preguntaRepository.save(pregunta);
+                        evaluacion.getPreguntas().add(pregunta);
+                        for (OpcionRequest opcionRequest : preguntaRequest.getOpciones()) {
+                                Opcion opcion = Opcion.builder()
+                                                .texto(opcionRequest.getTexto())
+                                                .correcta(opcionRequest.isCorrecta())
+                                                .pregunta(pregunta)
+                                                .build();
+                                opcionRepository.save(opcion);
+                                pregunta.getOpciones().add(opcion);
+                        }
+                }
+        }
+
+        private void eliminarPreguntas(Evaluacion evaluacion) {
+                List<Pregunta> preguntas = preguntaRepository.findByEvaluacionId(evaluacion.getId());
+                for (Pregunta pregunta : preguntas) {
+                        opcionRepository.deleteAll(opcionRepository.findByPreguntaId(pregunta.getId()));
+                }
+                preguntaRepository.deleteAll(preguntas);
+        }
+
+        private void validarSolicitud(EvaluacionRequest request) {
+                if (request == null || request.getTitulo() == null || request.getTitulo().isBlank()
+                                || request.getDescripcion() == null || request.getDescripcion().isBlank()
+                                || request.getCursoId() == null || request.getPreguntas() == null
+                                || request.getPreguntas().isEmpty()) {
+                        throw new RuntimeException("Completa los datos de la evaluación y agrega al menos una pregunta");
+                }
+                if (request.getFechaVencimiento() == null
+                                || (request.getFechaPublicacion() != null
+                                                && !request.getFechaVencimiento().isAfter(request.getFechaPublicacion()))) {
+                        throw new RuntimeException("La fecha de vencimiento debe ser posterior a la publicación");
+                }
+                for (PreguntaRequest pregunta : request.getPreguntas()) {
+                        if (pregunta.getEnunciado() == null || pregunta.getEnunciado().isBlank()
+                                        || pregunta.getPuntaje() == null || pregunta.getPuntaje() < 1
+                                        || pregunta.getOpciones() == null || pregunta.getOpciones().size() < 2
+                                        || pregunta.getOpciones().stream().anyMatch(
+                                                        opcion -> opcion.getTexto() == null
+                                                                        || opcion.getTexto().isBlank())
+                                        || pregunta.getOpciones().stream()
+                                                        .filter(OpcionRequest::isCorrecta).count() != 1) {
+                                throw new RuntimeException(
+                                                "Cada pregunta debe tener puntaje positivo, al menos dos opciones y una sola respuesta correcta");
+                        }
+                }
         }
 
         @Transactional(readOnly = true)
