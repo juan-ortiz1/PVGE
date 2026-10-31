@@ -17,6 +17,7 @@ public class UsuarioResponse {
     private Integer id;
     private String nombre;
     private String correo;
+    private String fotoPerfilUrl;
     private Rol rol;
     private Boolean activo;
 }

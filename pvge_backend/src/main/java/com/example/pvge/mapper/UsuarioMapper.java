@@ -12,6 +12,7 @@ public class UsuarioMapper {
                 .id(usuario.getId())
                 .nombre(usuario.getUsername())
                 .correo(usuario.getCorreo())
+                .fotoPerfilUrl(usuario.getFotoPerfilUrl())
                 .rol(usuario.getRol())
                 .activo(usuario.getActivo())
                 .build();
@@ -21,6 +22,7 @@ public class UsuarioMapper {
                 .id(usuario.getId())
                 .nombre(nombre)
                 .correo(usuario.getCorreo())
+                .fotoPerfilUrl(usuario.getFotoPerfilUrl())
                 .rol(usuario.getRol())
                 .activo(usuario.getActivo())
                 .build();

@@ -45,6 +45,9 @@ public class Usuario implements UserDetails {
     @Column(name = "password")
     private String password;
 
+    @Column(name = "foto_perfil_url", length = 2048)
+    private String fotoPerfilUrl;
+
     @Enumerated(EnumType.STRING)
     private Rol rol;
 
