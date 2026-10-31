@@ -9,7 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.pvge.dto.usuario.PerfilRequest;
+import com.example.pvge.dto.usuario.PerfilResponse;
 import com.example.pvge.dto.usuario.UsuarioResponse;
+import com.example.pvge.dto.estudiante.EstudianteResponse;
+import com.example.pvge.dto.instructor.InstructorResponse;
 import com.example.pvge.mapper.UsuarioMapper;
 import com.example.pvge.model.Curso;
 import com.example.pvge.model.Estudiante;
@@ -77,20 +80,76 @@ public class UsuarioService {
                 .toList();
     }
 
-    public UsuarioResponse editarUsuario(Integer id, PerfilRequest request){
-        return null;
+    @Transactional
+    public PerfilResponse editarUsuario(String correoActual, PerfilRequest request, MultipartFile foto) {
+        Usuario usuario = usuarioRepository.findByCorreo(correoActual)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        if (request.getCorreo() != null && !request.getCorreo().isBlank()
+                && !request.getCorreo().equals(usuario.getCorreo())) {
+            usuarioRepository.findByCorreo(request.getCorreo()).ifPresent(otroUsuario -> {
+                if (!otroUsuario.getId().equals(usuario.getId())) {
+                    throw new RuntimeException("Ya existe un usuario con este correo electrónico");
+                }
+            });
+            usuario.setCorreo(request.getCorreo());
+        }
+
+        if (usuario.getRol() == Rol.ESTUDIANTE) {
+            Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                    .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+            if (request.getNombre() != null && !request.getNombre().isBlank()) {
+                estudiante.setNombre(request.getNombre());
+            }
+            if (request.getApellido() != null && !request.getApellido().isBlank()) {
+                estudiante.setApellido(request.getApellido());
+            }
+            if (request.getNickname() != null && !request.getNickname().isBlank()
+                    && !request.getNickname().equals(estudiante.getNickname())) {
+                estudianteRepository.findByNickname(request.getNickname()).ifPresent(otroEstudiante -> {
+                    if (!otroEstudiante.getId().equals(estudiante.getId())) {
+                        throw new RuntimeException("Ya existe un usuario con este nickname");
+                    }
+                });
+                estudiante.setNickname(request.getNickname());
+            }
+            estudianteRepository.save(estudiante);
+        } else if (usuario.getRol() == Rol.INSTRUCTOR) {
+            Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
+                    .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+            if (request.getNombre() != null && !request.getNombre().isBlank()) {
+                instructor.setNombre(request.getNombre());
+            }
+            instructorRepository.save(instructor);
+        }
+
+        String fotoAnterior = null;
+        if (foto != null && !foto.isEmpty()) {
+            fotoAnterior = actualizarFotoPerfil(usuario, foto);
+        } else if (request.getFotoPerfil() != null && !request.getFotoPerfil().isBlank()) {
+            usuario.setFotoPerfilUrl(request.getFotoPerfil());
+        }
+        usuarioRepository.save(usuario);
+        eliminarFotoAnterior(fotoAnterior);
+        return buildPerfilResponse(usuario);
     }
 
-    public UsuarioResponse getPerfil(String correo) {
+    public PerfilResponse getPerfil(String correo) {
         Usuario usuario = usuarioRepository.findByCorreo(correo)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        return buildUsuarioResponse(usuario);
+        return buildPerfilResponse(usuario);
     }
 
     @Transactional
-    public UsuarioResponse subirFotoPerfil(String correo, MultipartFile foto) {
+    public PerfilResponse subirFotoPerfil(String correo, MultipartFile foto) {
         Usuario usuario = usuarioRepository.findByCorreo(correo)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        String fotoAnterior = actualizarFotoPerfil(usuario, foto);
+        usuarioRepository.save(usuario);
+        eliminarFotoAnterior(fotoAnterior);
+        return buildPerfilResponse(usuario);
+    }
+
+    private String actualizarFotoPerfil(Usuario usuario, MultipartFile foto) {
         if (foto == null || foto.isEmpty()) {
             throw new IllegalArgumentException("Debes seleccionar una imagen");
         }
@@ -106,11 +165,46 @@ public class UsuarioService {
 
         String fotoAnterior = usuario.getFotoPerfilUrl();
         usuario.setFotoPerfilUrl(fileStorageService.upload(foto, "perfiles"));
-        usuarioRepository.save(usuario);
+        return fotoAnterior;
+    }
+
+    private void eliminarFotoAnterior(String fotoAnterior) {
         if (fotoAnterior != null && !fotoAnterior.isBlank()) {
             fileStorageService.delete(fotoAnterior);
         }
-        return buildUsuarioResponse(usuario);
+    }
+
+    private PerfilResponse buildPerfilResponse(Usuario usuario) {
+        EstudianteResponse estudianteResponse = null;
+        InstructorResponse instructorResponse = null;
+        if (usuario.getRol() == Rol.ESTUDIANTE) {
+            Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                    .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+            estudianteResponse = EstudianteResponse.builder()
+                    .id(estudiante.getId())
+                    .nickname(estudiante.getNickname())
+                    .nombre(estudiante.getNombre())
+                    .apellido(estudiante.getApellido())
+                    .correo(usuario.getCorreo())
+                    .fechaRegistro(estudiante.getFechaRegistro())
+                    .pais(estudiante.getPais())
+                    .build();
+        } else if (usuario.getRol() == Rol.INSTRUCTOR) {
+            Instructor instructor = instructorRepository.findByUsuarioId(usuario.getId())
+                    .orElseThrow(() -> new RuntimeException("Instructor no encontrado"));
+            instructorResponse = InstructorResponse.builder()
+                    .id(instructor.getId())
+                    .nombre(instructor.getNombre())
+                    .correo(usuario.getCorreo())
+                    .disciplina(instructor.getDisciplina())
+                    .tier(instructor.getTier())
+                    .build();
+        }
+        return PerfilResponse.builder()
+                .usuario(buildUsuarioResponse(usuario))
+                .estudiante(estudianteResponse)
+                .instructor(instructorResponse)
+                .build();
     }
 
     private UsuarioResponse buildUsuarioResponse(Usuario usuario){

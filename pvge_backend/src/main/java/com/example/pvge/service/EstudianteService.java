@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.pvge.dto.estudiante.EstudianteRequest;
 import com.example.pvge.dto.estudiante.EstudianteResponse;
+import com.example.pvge.dto.usuario.PerfilRequest;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Rol;
 import com.example.pvge.model.Usuario;

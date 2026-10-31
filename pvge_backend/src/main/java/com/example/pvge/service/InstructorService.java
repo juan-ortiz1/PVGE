@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.pvge.dto.instructor.InstructorRequest;
 import com.example.pvge.dto.instructor.InstructorResponse;
+import com.example.pvge.dto.usuario.PerfilRequest;
 import com.example.pvge.mapper.InstructorMapper;
 import com.example.pvge.model.Instructor;
 import com.example.pvge.model.Rol;
@@ -38,6 +39,5 @@ public class InstructorService {
         instructorRepository.save(instructor);
         return instructorMapper.toResponse(instructor);
     }
-
 
 }

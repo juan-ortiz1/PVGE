@@ -10,6 +10,7 @@ import lombok.Setter;
 @NoArgsConstructor 
 @AllArgsConstructor 
 public class PerfilRequest {
+    private String fotoPerfil;
     private String correo;
     private String nombre;
     private String apellido;
