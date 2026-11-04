@@ -2,9 +2,12 @@ package com.example.pvge;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
+
 import io.github.cdimascio.dotenv.Dotenv;
 
 @SpringBootApplication
+@EnableAsync
 public class PvgeApplication {
 
 	public static void main(String[] args) {
