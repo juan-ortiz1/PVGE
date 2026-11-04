@@ -108,7 +108,9 @@ export default function Register() {
       if (!res.ok) {
         throw new Error(data?.message || `Error ${res.status} al registrarse`);
       }
-      router.replace("/");
+      router.replace(
+        `/verificar?correo=${encodeURIComponent(email.trim())}` as any,
+      );
     } catch (err: any) {
       console.error(err);
       setServerError(err.message ?? "No se pudo completar el registro");

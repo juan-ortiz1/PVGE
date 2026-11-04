@@ -54,10 +54,18 @@ export default function Login() {
       const data = text ? JSON.parse(text) : null;
 
       if (!res.ok) {
+        const msg = (data?.message ?? "").toLowerCase();
+        if (/verific|no activ|confirm/.test(msg)) {
+          router.push(
+            `/verificar?correo=${encodeURIComponent(email.trim())}` as any,
+          );
+          return;
+        }
         throw new Error(
-          res.status === 401 || res.status === 403
-            ? "Correo o contraseña incorrectos"
-            : data?.message || "Error al iniciar sesión",
+          data?.message ||
+            (res.status === 401 || res.status === 403
+              ? "Correo o contraseña incorrectos"
+              : "Error al iniciar sesión"),
         );
       }
 

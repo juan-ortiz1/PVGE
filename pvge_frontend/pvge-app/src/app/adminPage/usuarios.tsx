@@ -266,10 +266,7 @@ export default function ListadoUsuarios() {
       <Modal visible={!!detalle} transparent animationType="slide">
         <Pressable
           className="flex-1 justify-end bg-black/50"
-          onPress={() => {
-            setDeleteUser(detalle);
-            setDetalle(null);
-          }}
+          onPress={() => setDetalle(null)}
         >
           <Pressable className="bg-white rounded-t-3xl p-6 pb-10">
             {detalle && (
@@ -328,7 +325,10 @@ export default function ListadoUsuarios() {
 
                 {detalle.rol !== "ADMIN" && (
                   <Pressable
-                    onPress={() => setDeleteUser(detalle)}
+                    onPress={() => {
+                      setDeleteUser(detalle);
+                      setDetalle(null);
+                    }}
                     className="h-12 bg-red-50 items-center justify-center rounded-xl mt-4"
                   >
                     <Text className="text-red-600 font-bold">
