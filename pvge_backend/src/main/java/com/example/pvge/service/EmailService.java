@@ -17,17 +17,27 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String remitente;
 
-    @Value("${recuperacion.expiracion-minutos}")
+    @Value("${codigo.expiracion-minutos}")
     private int expiracionMinutos;
 
     @Async
     public void enviarCodigoRecuperacion(String destino, String codigo) {
+        enviar(destino, "PVGE - Recuperación de contraseña", "Tu código de recuperación es: " + codigo
+                + "\n\nCaduca en " + expiracionMinutos + " minutos. Si no lo solicitaste, ignora este correo.");
+    }
+
+    @Async
+    public void enviarCodigoVerificacion(String destino, String codigo) {
+        enviar(destino, "PVGE - Verifica tu correo", "Tu código de verificación es: " + codigo
+                + "\n\nCaduca en " + expiracionMinutos + " minutos. Si no creaste una cuenta en PVGE, ignora este correo.");
+    }
+
+    private void enviar(String destino, String asunto, String texto) {
         SimpleMailMessage mensaje = new SimpleMailMessage();
         mensaje.setFrom(remitente);
         mensaje.setTo(destino);
-        mensaje.setSubject("PVGE - Recuperación de contraseña");
-        mensaje.setText("Tu código de recuperación es: " + codigo
-                + "\n\nCaduca en " + expiracionMinutos + " minutos. Si no lo solicitaste, ignora este correo.");
+        mensaje.setSubject(asunto);
+        mensaje.setText(texto);
         mailSender.send(mensaje);
     }
 }

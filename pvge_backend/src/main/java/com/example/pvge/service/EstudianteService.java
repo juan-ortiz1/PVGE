@@ -9,9 +9,9 @@ import com.example.pvge.dto.estudiante.EstudianteResponse;
 import com.example.pvge.dto.usuario.PerfilRequest;
 import com.example.pvge.model.Estudiante;
 import com.example.pvge.model.Rol;
+import com.example.pvge.model.TipoCodigo;
 import com.example.pvge.model.Usuario;
 import com.example.pvge.repository.EstudianteRepository;
-import com.example.pvge.repository.UsuarioRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -21,26 +21,26 @@ import lombok.RequiredArgsConstructor;
 public class EstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final UsuarioService usuarioService;
-    private final UsuarioRepository usuarioRepository;
+    private final CodigoVerificacionService codigoVerificacionService;
 
     @Transactional
     public EstudianteResponse crearEstudiante(EstudianteRequest request) {
-        if (usuarioRepository.findByCorreo(request.getCorreo()).isPresent()) {
-            throw new RuntimeException("Ya existe un usuario con este correo electrónico");
-        }
-        if (estudianteRepository.findByNickname(request.getNickname()).isPresent()) {
+        Usuario usuario = usuarioService.crearUsuario(request.getCorreo(), request.getPassword(), Rol.ESTUDIANTE);
+        // Si se reutilizó una cuenta pendiente de verificación, se actualiza su estudiante en vez de crear otro
+        Estudiante estudiante = estudianteRepository.findByUsuarioId(usuario.getId())
+                .orElseGet(() -> Estudiante.builder().usuario(usuario).build());
+        if (estudianteRepository.findByNickname(request.getNickname())
+                .filter(e -> !e.getId().equals(estudiante.getId()))
+                .isPresent()) {
             throw new RuntimeException("Ya existe un usuario con este nickname");
         }
-        Usuario usuario = usuarioService.crearUsuario(request.getCorreo(), request.getPassword(), Rol.ESTUDIANTE);
-        Estudiante estudiante = Estudiante.builder()
-                .nickname(request.getNickname())
-                .nombre(request.getNombre())
-                .apellido(request.getApellido())
-                .fechaRegistro(LocalDateTime.now())
-                .pais(request.getPais())
-                .usuario(usuario)
-                .build();
+        estudiante.setNickname(request.getNickname());
+        estudiante.setNombre(request.getNombre());
+        estudiante.setApellido(request.getApellido());
+        estudiante.setFechaRegistro(LocalDateTime.now());
+        estudiante.setPais(request.getPais());
         estudianteRepository.save(estudiante);
+        codigoVerificacionService.generarYEnviar(usuario, TipoCodigo.VERIFICACION_CORREO);
         return buildEstudianteResponse(estudiante);
     }
 

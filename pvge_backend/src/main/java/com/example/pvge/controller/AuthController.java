@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.pvge.dto.auth.AuthResponse;
 import com.example.pvge.dto.auth.LoginRequest;
 import com.example.pvge.dto.auth.OlvidePasswordRequest;
+import com.example.pvge.dto.auth.ReenviarVerificacionRequest;
 import com.example.pvge.dto.auth.RefreshTokenRequest;
 import com.example.pvge.dto.auth.RestablecerPasswordRequest;
 import com.example.pvge.dto.auth.VerificarCodigoRequest;
@@ -39,6 +40,17 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<String> logout(@RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(authService.logout(request.getRefreshToken()));
+    }
+
+    @PostMapping("/verificar-correo")
+    public ResponseEntity<AuthResponse> verificarCorreo(@Valid @RequestBody VerificarCodigoRequest request) {
+        return ResponseEntity.ok(authService.verificarCorreo(request));
+    }
+
+    @PostMapping("/reenviar-verificacion")
+    public ResponseEntity<Map<String, String>> reenviarVerificacion(
+            @Valid @RequestBody ReenviarVerificacionRequest request) {
+        return ResponseEntity.ok(Map.of("message", authService.reenviarVerificacion(request)));
     }
 
     @PostMapping("/olvide-password")

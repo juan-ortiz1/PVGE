@@ -44,10 +44,19 @@ public class UsuarioService {
     private static final Set<String> TIPOS_FOTO_PERMITIDOS = Set.of(
             "image/jpeg", "image/png", "image/webp");
 
+    // Una cuenta que nunca verificó su correo se reutiliza, para que nadie pueda apartar un correo ajeno
     @Transactional
     public Usuario crearUsuario(String correo, String contraseña, Rol rol) {
-        Usuario usuario = Usuario.builder()
-                .correo(correo).password(passwordEncoder.encode(contraseña)).rol(rol).activo(true).build();
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
+                .map(existente -> {
+                    if (!existente.isPendienteVerificacion() || existente.getRol() != rol) {
+                        throw new RuntimeException("Ya existe un usuario con este correo electrónico");
+                    }
+                    return existente;
+                })
+                .orElseGet(() -> Usuario.builder()
+                        .correo(correo).rol(rol).activo(true).correoVerificado(false).build());
+        usuario.setPassword(passwordEncoder.encode(contraseña));
         return usuarioRepository.save(usuario);
     }
 

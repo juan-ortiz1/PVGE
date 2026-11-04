@@ -53,6 +53,14 @@ public class Usuario implements UserDetails {
 
     private Boolean activo;
 
+    // null en cuentas creadas antes de existir la verificación: se tratan como verificadas
+    @Column(name = "correo_verificado")
+    private Boolean correoVerificado;
+
+    public boolean isPendienteVerificacion() {
+        return Boolean.FALSE.equals(correoVerificado);
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(rol.name()));

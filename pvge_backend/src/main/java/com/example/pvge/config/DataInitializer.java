@@ -32,6 +32,7 @@ public class DataInitializer {
                 .password(passwordEncoder.encode(adminPassword))
                 .rol(Rol.ADMIN)
                 .activo(true)
+                .correoVerificado(true)
                 .build();
                 usuarioRepository.save(admin);
             }
