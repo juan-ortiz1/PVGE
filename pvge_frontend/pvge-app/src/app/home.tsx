@@ -248,7 +248,7 @@ export default function Home() {
   const calificar = async (cursoId: number, estrellas: number) => {
     setMsgCert(null);
     try {
-      const res = await authFetch(`${BASE}/calificaciones/${cursoId}`, {
+      const res = await authFetch(`${BASE}/calificaciones/cursos/${cursoId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estrellas }),
