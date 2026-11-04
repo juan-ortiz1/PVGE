@@ -156,6 +156,15 @@ export default function Login() {
               )}
             </Pressable>
           </View>
+          <Pressable
+            onPress={() => router.push("/recuperar" as any)}
+            className="self-start mt-2"
+            hitSlop={8}
+          >
+            <Text className="text-blue-700 text-sm font-bold">
+              ¿Olvidaste tu contraseña?
+            </Text>
+          </Pressable>
           <FieldError msg={errors.password} />
 
           {serverError && (

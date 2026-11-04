@@ -6,6 +6,7 @@ import {
   FlatList,
   ActivityIndicator,
   Platform,
+  Linking,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -42,6 +43,9 @@ type Tarea = {
   descripcion: string;
   fechaEntrega: string;
   estado?: EstadoTarea | null;
+  calificacion?: number | string | null;
+  observaciones?: string | null;
+  fechaCalificacion?: string | null;
 };
 type Curso = {
   id: number;
@@ -61,6 +65,11 @@ type Evaluacion = {
   preguntas?: { puntaje: number }[];
   estado?: EstadoEval | null;
   puntajeObtenido?: number | null;
+};
+type MiEntrega = {
+  nombreArchivo: string;
+  urlArchivo: string;
+  fechaEntrega: string;
 };
 type Tab = "contenidos" | "tareas" | "evaluaciones";
 
@@ -139,19 +148,30 @@ const parse = (t: string) => {
   }
 };
 
+const abrirUrl = (url: string) =>
+  Platform.OS === "web"
+    ? (globalThis as any).open(url, "_blank")
+    : Linking.openURL(url);
+
 export default function CursoDetalle() {
-  const { id, inscrito } = useLocalSearchParams<{
-    id: string;
-    inscrito: string;
-  }>();
+  const {
+    id,
+    inscrito,
+    tab: tabInicial,
+  } = useLocalSearchParams<{ id: string; inscrito: string; tab?: string }>();
   const { accessToken, authFetch, role, ready } = useAuth();
   const logueado = !!accessToken;
 
   const [curso, setCurso] = useState<Curso | null>(null);
-  const [tab, setTab] = useState<Tab>("contenidos");
+  const [tab, setTab] = useState<Tab>(
+    tabInicial === "tareas" || tabInicial === "evaluaciones"
+      ? tabInicial
+      : "contenidos",
+  );
   const [contenidos, setContenidos] = useState<Contenido[]>([]);
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([]);
+  const [misEntregas, setMisEntregas] = useState<Record<number, MiEntrega>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorEval, setErrorEval] = useState<string | null>(null);
@@ -162,8 +182,6 @@ export default function CursoDetalle() {
   const [enrolling, setEnrolling] = useState(false);
   const [leaveModal, setLeaveModal] = useState(false);
   const [entregando, setEntregando] = useState<number | null>(null);
-  // Solo en memoria: el backend no devuelve la entrega al listar tareas
-  const [entregadas, setEntregadas] = useState<number[]>([]);
   const [msgTarea, setMsgTarea] = useState<string | null>(null);
 
   // Instructor: editar / eliminar contenido
@@ -195,8 +213,29 @@ export default function CursoDetalle() {
 
       const dataC = parse(await resC.text());
       setContenidos(Array.isArray(dataC) ? dataC : []);
+
       const dataT = parse(await resT.text());
-      setTareas(Array.isArray(dataT) ? dataT : []);
+      const listaT: Tarea[] = Array.isArray(dataT) ? dataT : [];
+      setTareas(listaT);
+
+      // Archivo entregado (la nota ya viene en la tarea)
+      if (esEstudiante) {
+        const hechas = listaT.filter((t) => t.estado === "ENTREGADA");
+        const resp = await Promise.all(
+          hechas.map((t) =>
+            authFetch(`${API}/tareas/${t.id}/mis-entregas`)
+              .then(async (r) => (r.ok ? parse(await r.text()) : null))
+              .catch(() => null),
+          ),
+        );
+        const mapa: Record<number, MiEntrega> = {};
+        hechas.forEach((t, i) => {
+          const d = resp[i];
+          const e = Array.isArray(d) ? d[d.length - 1] : d; // objeto o lista
+          if (e) mapa[t.id] = e;
+        });
+        setMisEntregas(mapa);
+      }
 
       const dataE = parse(await resE.text());
       setEvaluaciones(resE.ok && Array.isArray(dataE) ? dataE : []);
@@ -286,7 +325,6 @@ export default function CursoDetalle() {
       const data = parse(await res.text());
       if (!res.ok) throw new Error(data?.message ?? `Error ${res.status}`);
 
-      setEntregadas((p) => (p.includes(tareaId) ? p : [...p, tareaId]));
       await fetchAll();
     } catch (e: any) {
       setMsgTarea(e.message);
@@ -477,7 +515,10 @@ export default function CursoDetalle() {
         {TABS.map(({ key, label, Icon }) => (
           <Pressable
             key={key}
-            onPress={() => setTab(key)}
+            onPress={() => {
+              setTab(key);
+              setMsgTarea(null);
+            }}
             className={`flex-1 flex-row items-center justify-center gap-1 h-10 rounded-xl ${
               tab === key ? theme.header : ""
             }`}
@@ -494,7 +535,7 @@ export default function CursoDetalle() {
 
       {/* Acciones (instructor) */}
       {esInstructor && (
-        <View className="px-6 mt-4 flex-row gap-3">
+        <View className="px-6 mt-4 flex-row gap-2">
           <Pressable
             onPress={() =>
               router.push(
@@ -509,9 +550,17 @@ export default function CursoDetalle() {
           </Pressable>
           <Pressable
             onPress={() =>
+              router.push(`/curso/entregas/${id}?t=${themeIdx}` as any)
+            }
+            className="h-11 px-4 bg-white border border-gray-200 items-center justify-center rounded-xl"
+          >
+            <Text className={`${theme.text} font-bold text-sm`}>Entregas</Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
               router.push(`/curso/estudiantes/${id}?t=${themeIdx}` as any)
             }
-            className={`${theme.header} h-11 px-5 items-center justify-center rounded-xl`}
+            className={`${theme.header} h-11 px-4 items-center justify-center rounded-xl`}
           >
             <Text className="text-white font-bold text-sm">Estudiantes</Text>
           </Pressable>
@@ -608,11 +657,12 @@ export default function CursoDetalle() {
           )}
           renderItem={({ item }) => {
             const est = estadoEntrega(item.fechaEntrega);
-            const entregada =
-              item.estado === "ENTREGADA" || entregadas.includes(item.id);
+            const entregada = item.estado === "ENTREGADA";
             const vencida =
               !entregada &&
               (item.estado === "VENCIDA" || est.label === "Vencida");
+            const calificada = item.calificacion != null;
+            const mia = misEntregas[item.id];
 
             const chip = entregada
               ? {
@@ -627,6 +677,7 @@ export default function CursoDetalle() {
                     text: "text-red-700",
                   }
                 : est;
+
             return (
               <View
                 className="bg-white rounded-2xl p-4 mb-3 border border-gray-100"
@@ -654,6 +705,47 @@ export default function CursoDetalle() {
                     </View>
                   )}
                 </View>
+
+                {esEstudiante && (mia || calificada) && (
+                  <View className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3">
+                    {mia && (
+                      <Pressable onPress={() => abrirUrl(mia.urlArchivo)}>
+                        <Text
+                          className="text-gray-900 text-sm font-bold"
+                          numberOfLines={1}
+                        >
+                          {mia.nombreArchivo}
+                        </Text>
+                        <Text className="text-gray-500 text-xs mt-0.5">
+                          Entregada {fmtFecha(mia.fechaEntrega)} · toca para
+                          abrir
+                        </Text>
+                      </Pressable>
+                    )}
+                    {calificada ? (
+                      <View
+                        className={
+                          mia ? "mt-2 pt-2 border-t border-gray-200" : ""
+                        }
+                      >
+                        <Text className="text-green-700 font-bold">
+                          Nota: {Number(item.calificacion).toFixed(1)} / 5.0
+                        </Text>
+                        {!!item.observaciones && (
+                          <Text className="text-gray-600 text-xs mt-1">
+                            {item.observaciones}
+                          </Text>
+                        )}
+                      </View>
+                    ) : (
+                      entregada && (
+                        <Text className="text-gray-500 text-xs mt-2">
+                          Pendiente de calificación
+                        </Text>
+                      )
+                    )}
+                  </View>
+                )}
 
                 {esEstudiante && !vencida && est.label !== "Vencida" && (
                   <Pressable

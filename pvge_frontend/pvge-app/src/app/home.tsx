@@ -22,6 +22,10 @@ import {
   X,
   BookOpen,
   ChevronRight,
+  Bell,
+  User,
+  Award,
+  Star,
 } from "lucide-react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useAuth } from "../context/AuthContext";
@@ -39,16 +43,26 @@ type Curso = {
 type Progreso = {
   cursoId: number;
   cursoTitulo: string;
+  tareasTotales?: number | null;
+  tareasCompletadas?: number | null;
   evaluacionesTotales: number;
   evaluacionesCompletadas: number;
-  tareasTotales: number | null;
-  tareasCompletadas: number | null;
   porcentajeCompletado: number;
+  certificadoDisponible?: boolean;
   puntajeObtenido: number;
   puntajeTotal: number;
 };
 
-const API = "http://localhost:8080/api/cursos";
+type Calif = {
+  cursoId: number;
+  estrellas?: number | null;
+  promedio?: number | null;
+  totalCalificaciones?: number;
+  puedeCalificar?: boolean;
+};
+
+const BASE = "http://localhost:8080/api";
+const API = `${BASE}/cursos`;
 
 const COLORS = [
   { bg: "bg-blue-100", text: "text-blue-700", hex: "#2563eb" },
@@ -71,6 +85,9 @@ const shadow = {
 // El backend manda porcentajeCompletado de 0 a 100
 const pct = (p: number) => Math.round(Math.min(100, Math.max(0, p ?? 0)));
 
+const actividades = (p?: Progreso) =>
+  (p?.tareasTotales ?? 0) + (p?.evaluacionesTotales ?? 0);
+
 const esNuevo = (fecha: string) =>
   (Date.now() - new Date(fecha).getTime()) / 864e5 <= 7;
 
@@ -86,6 +103,14 @@ const saludo = () => {
   return h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
 };
 
+const parse = (t: string) => {
+  try {
+    return t ? JSON.parse(t) : null;
+  } catch {
+    return null;
+  }
+};
+
 const Stat = ({ value, label }: { value: string | number; label: string }) => (
   <View className="flex-1 bg-white/15 rounded-2xl px-4 py-3">
     <Text className="text-white text-2xl font-bold">{value}</Text>
@@ -97,12 +122,17 @@ type Filtro = "TODOS" | "INSCRITOS" | "DISPONIBLES";
 
 export default function Home() {
   const { role, accessToken, authFetch, ready, logout } = useAuth();
+  const logueado = !!accessToken;
+
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [progreso, setProgreso] = useState<Progreso[]>([]);
+  const [califs, setCalifs] = useState<Record<number, Calif>>({});
+  const [sinLeer, setSinLeer] = useState(0);
   const [query, setQuery] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [msgCert, setMsgCert] = useState<string | null>(null);
 
   const [logoutModal, setLogoutModal] = useState(false);
   const [inscribirId, setInscribirId] = useState<number | null>(null);
@@ -113,17 +143,38 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
 
   const esInstructor = role === "INSTRUCTOR";
+  const esEstudiante = role === "ESTUDIANTE";
   const perfil = esInstructor ? cursos[0]?.instructor : null;
 
   const fetchProgreso = async () => {
     try {
-      const res = await authFetch("http://localhost:8080/api/progreso");
+      const res = await authFetch(`${BASE}/progreso`);
       if (!res.ok) return;
-      const data = await res.json();
+      const data = parse(await res.text());
       setProgreso(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const fetchCalifs = async () => {
+    try {
+      const res = await authFetch(`${BASE}/calificaciones/cursos`);
+      if (!res.ok) return;
+      const d = parse(await res.text());
+      const m: Record<number, Calif> = {};
+      (Array.isArray(d) ? d : []).forEach((c: Calif) => (m[c.cursoId] = c));
+      setCalifs(m);
+    } catch {}
+  };
+
+  const fetchNoLeidas = async () => {
+    try {
+      const res = await authFetch(`${BASE}/notificaciones/no-leidas/count`);
+      if (!res.ok) return;
+      const d = parse(await res.text());
+      setSinLeer(typeof d === "number" ? d : Number(d?.count ?? d?.total ?? 0));
+    } catch {}
   };
 
   const fetchCursos = async (titulo?: string) => {
@@ -135,7 +186,7 @@ export default function Home() {
           : API;
       const res = await authFetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
+      const data = parse(await res.text());
       setCursos(Array.isArray(data) ? data : []);
       setError(null);
     } catch (e: any) {
@@ -149,13 +200,17 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       if (!ready) return;
-      if (!accessToken) {
+      if (!logueado) {
         router.replace("/");
         return;
       }
-      if (role === "ESTUDIANTE") fetchProgreso();
+      if (esEstudiante) {
+        fetchProgreso();
+        fetchCalifs();
+      }
+      fetchNoLeidas();
       fetchCursos();
-    }, [ready, accessToken, role]),
+    }, [ready, logueado, role]),
   );
 
   const confirmInscribir = async () => {
@@ -173,6 +228,36 @@ export default function Home() {
       setError(e.message ?? "No se pudo completar la inscripción");
     } finally {
       setInscribirId(null);
+    }
+  };
+
+  const generarCert = async (cursoId: number) => {
+    setMsgCert(null);
+    try {
+      const res = await authFetch(`${BASE}/certificados/cursos/${cursoId}`, {
+        method: "POST",
+      });
+      const d = parse(await res.text());
+      if (!res.ok) throw new Error(d?.message ?? `Error ${res.status}`);
+      router.push("/certificados" as any);
+    } catch (e: any) {
+      setMsgCert(e.message);
+    }
+  };
+
+  const calificar = async (cursoId: number, estrellas: number) => {
+    setMsgCert(null);
+    try {
+      const res = await authFetch(`${BASE}/calificaciones/${cursoId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estrellas }),
+      });
+      const d = parse(await res.text());
+      if (!res.ok) throw new Error(d?.message ?? `Error ${res.status}`);
+      if (d) setCalifs((prev) => ({ ...prev, [cursoId]: d }));
+    } catch (e: any) {
+      setMsgCert(e.message);
     }
   };
 
@@ -194,9 +279,7 @@ export default function Home() {
     try {
       const res = await authFetch(`${API}/${editando.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           titulo: tituloEdit.trim(),
           descripcion: descripcionEdit.trim(),
@@ -229,12 +312,12 @@ export default function Home() {
     [progreso],
   );
 
-  // Promedio solo de cursos que tienen evaluaciones
-  const conEvals = progreso.filter((p) => p.evaluacionesTotales > 0);
-  const avance = conEvals.length
+  // Promedio solo de cursos que tienen actividades
+  const conActs = progreso.filter((p) => actividades(p) > 0);
+  const avance = conActs.length
     ? Math.round(
-        conEvals.reduce((s, p) => s + pct(p.porcentajeCompletado), 0) /
-          conEvals.length,
+        conActs.reduce((s, p) => s + pct(p.porcentajeCompletado), 0) /
+          conActs.length,
       )
     : 0;
 
@@ -255,33 +338,42 @@ export default function Home() {
   ];
 
   const ListHeader = !esInstructor ? (
-    <View className="flex-row flex-wrap gap-2 mb-4">
-      {chips.map((c) => {
-        const activo = filtro === c.key;
-        return (
-          <Pressable
-            key={c.key}
-            onPress={() => setFiltro(c.key)}
-            className={`px-4 h-9 items-center justify-center rounded-full border ${
-              activo
-                ? "bg-blue-600 border-blue-600"
-                : "bg-white border-gray-200"
-            }`}
-          >
-            <Text
-              className={`text-xs font-bold ${activo ? "text-white" : "text-gray-600"}`}
+    <View className="mb-2">
+      <View className="flex-row flex-wrap gap-2 mb-4">
+        {chips.map((c) => {
+          const activo = filtro === c.key;
+          return (
+            <Pressable
+              key={c.key}
+              onPress={() => setFiltro(c.key)}
+              className={`px-4 h-9 items-center justify-center rounded-full border ${
+                activo
+                  ? "bg-blue-600 border-blue-600"
+                  : "bg-white border-gray-200"
+              }`}
             >
-              {c.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+              <Text
+                className={`text-xs font-bold ${activo ? "text-white" : "text-gray-600"}`}
+              >
+                {c.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {!!msgCert && (
+        <View className="bg-red-50 rounded-xl px-4 py-3 mb-3">
+          <Text className="text-red-700 text-xs">{msgCert}</Text>
+        </View>
+      )}
     </View>
   ) : (
     <Text className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">
       Administra tus cursos
     </Text>
   );
+
+  const iconBtn = "bg-white/15 p-2.5 rounded-full";
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -319,14 +411,50 @@ export default function Home() {
             />
             <Text className="text-white text-lg font-bold ml-2">Mentum</Text>
           </View>
-          <Pressable
-            onPress={() => setLogoutModal(true)}
-            accessibilityLabel="Cerrar sesión"
-            hitSlop={8}
-            className="bg-white/15 p-2.5 rounded-full"
-          >
-            <Power color="white" size={18} />
-          </Pressable>
+
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => router.push("/perfil" as any)}
+              accessibilityLabel="Mi perfil"
+              hitSlop={8}
+              className={iconBtn}
+            >
+              <User color="white" size={18} />
+            </Pressable>
+            {esEstudiante && (
+              <Pressable
+                onPress={() => router.push("/certificados" as any)}
+                accessibilityLabel="Mis certificados"
+                hitSlop={8}
+                className={iconBtn}
+              >
+                <Award color="white" size={18} />
+              </Pressable>
+            )}
+            <Pressable
+              onPress={() => router.push("/notificaciones" as any)}
+              accessibilityLabel="Notificaciones"
+              hitSlop={8}
+              className={iconBtn}
+            >
+              <Bell color="white" size={18} />
+              {sinLeer > 0 && (
+                <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[18px] h-[18px] items-center justify-center px-1">
+                  <Text className="text-white text-[10px] font-bold">
+                    {sinLeer > 9 ? "9+" : sinLeer}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => setLogoutModal(true)}
+              accessibilityLabel="Cerrar sesión"
+              hitSlop={8}
+              className={iconBtn}
+            >
+              <Power color="white" size={18} />
+            </Pressable>
+          </View>
         </View>
 
         <Text className="text-blue-100 text-sm mt-6">{saludo()}</Text>
@@ -435,8 +563,7 @@ export default function Home() {
             const inicial =
               item.instructor?.nombre?.charAt(0)?.toUpperCase() ?? "?";
             const p = item.inscrito ? progMap[item.id] : undefined;
-            const items =
-              (p?.tareasTotales ?? 0) + (p?.evaluacionesTotales ?? 0);
+            const c = califs[item.id];
 
             return (
               <Pressable
@@ -517,14 +644,15 @@ export default function Home() {
                     {item.descripcion}
                   </Text>
 
-                  {p && items > 0 && (
+                  {p && actividades(p) > 0 && (
                     <View className="mt-4">
                       <View className="flex-row items-center justify-between mb-1.5">
-                        <Text className="text-gray-500 text-xs">
-                          {p.tareasCompletadas ?? 0}/{p.tareasTotales ?? 0}{" "}
-                          tareas · {p.evaluacionesCompletadas}/
-                          {p.evaluacionesTotales}
-                          evaluaciones.
+                        <Text className="text-gray-500 text-xs flex-1 mr-2">
+                          {(p.tareasTotales ?? 0) > 0
+                            ? `${p.tareasCompletadas ?? 0}/${p.tareasTotales} tareas · `
+                            : ""}
+                          {p.evaluacionesCompletadas}/{p.evaluacionesTotales}{" "}
+                          eval.
                         </Text>
                         <Text className={`text-xs font-bold ${color.text}`}>
                           {pct(p.porcentajeCompletado)}%
@@ -542,6 +670,63 @@ export default function Home() {
                       </View>
                     </View>
                   )}
+
+                  {esEstudiante &&
+                    p &&
+                    (p.certificadoDisponible ||
+                      p.porcentajeCompletado >= 100) && (
+                      <View className="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                        {p.certificadoDisponible && (
+                          <Pressable
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              generarCert(item.id);
+                            }}
+                            className="flex-row items-center justify-center bg-amber-600 h-10 rounded-lg"
+                          >
+                            <Award size={15} color="white" />
+                            <Text className="text-white text-sm font-bold ml-2">
+                              Obtener certificado
+                            </Text>
+                          </Pressable>
+                        )}
+
+                        {p.porcentajeCompletado >= 100 && (
+                          <>
+                            <View className="flex-row items-center justify-center mt-3 gap-1">
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <Pressable
+                                  key={n}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    calificar(item.id, n);
+                                  }}
+                                  hitSlop={6}
+                                >
+                                  <Star
+                                    size={24}
+                                    color="#d97706"
+                                    fill={
+                                      (c?.estrellas ?? 0) >= n
+                                        ? "#d97706"
+                                        : "none"
+                                    }
+                                  />
+                                </Pressable>
+                              ))}
+                            </View>
+                            <Text className="text-amber-800 text-xs text-center mt-1">
+                              {c?.estrellas
+                                ? `Tu calificación: ${c.estrellas}/5`
+                                : "Califica este curso"}
+                              {c?.promedio
+                                ? ` · Promedio ${c.promedio} (${c.totalCalificaciones})`
+                                : ""}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                    )}
 
                   <View className="flex-row items-center justify-between mt-4 pt-3 border-t border-gray-100">
                     <Text className="text-gray-400 text-xs">
@@ -638,6 +823,7 @@ export default function Home() {
                 Título
               </Text>
               <TextInput
+                maxLength={255}
                 className="w-full px-3 h-12 bg-white border border-gray-200 rounded-xl mb-4 text-gray-900"
                 value={tituloEdit}
                 onChangeText={setTituloEdit}
@@ -649,6 +835,7 @@ export default function Home() {
               <TextInput
                 multiline
                 numberOfLines={4}
+                maxLength={255}
                 textAlignVertical="top"
                 className="w-full p-3 bg-white border border-gray-200 rounded-xl mb-5 h-28 text-gray-900"
                 value={descripcionEdit}
