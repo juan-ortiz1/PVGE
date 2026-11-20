@@ -1,0 +1,70 @@
+package com.example.pvge.controller;
+
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.pvge.dto.evaluacion.EvaluacionRequest;
+import com.example.pvge.dto.evaluacion.EvaluacionResponse;
+import com.example.pvge.dto.intento.ResponderEvaluacionRequest;
+import com.example.pvge.dto.intento.ResultadoEvaluacionResponse;
+import com.example.pvge.service.EvaluacionService;
+
+import lombok.RequiredArgsConstructor;
+
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
+
+@RestController
+@RequestMapping("/api/evaluaciones")
+@RequiredArgsConstructor
+public class EvaluacionController {
+
+    private final EvaluacionService evaluacionService;
+
+    @PostMapping
+    public ResponseEntity<EvaluacionResponse> crearEvaluacion(@RequestBody EvaluacionRequest request, Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.crearEvaluacion(request, authentication));
+    }
+
+    @GetMapping("/{id}/edicion")
+    public ResponseEntity<EvaluacionRequest> obtenerParaEdicion(@PathVariable Integer id,
+            Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.obtenerParaEdicion(id, authentication));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<EvaluacionResponse> actualizarEvaluacion(@PathVariable Integer id,
+            @RequestBody EvaluacionRequest request, Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.actualizarEvaluacion(id, request, authentication));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarEvaluacion(@PathVariable Integer id, Authentication authentication) {
+        evaluacionService.eliminarEvaluacion(id, authentication);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/curso/{cursoId}")
+    public ResponseEntity<List<EvaluacionResponse>> listarEvaluacionesPorCurso(@PathVariable Integer cursoId, Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.listarEvaluacionesPorCurso(cursoId, authentication));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<EvaluacionResponse> obtenerEvaluacion(@PathVariable Integer id, Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.obtenerEvaluacion(id, authentication));
+    }
+
+    @PostMapping("/{id}/responder")
+    public ResponseEntity<ResultadoEvaluacionResponse> responderEvaluacion(@PathVariable Integer id, @RequestBody ResponderEvaluacionRequest request, Authentication authentication) {
+        return ResponseEntity.ok(evaluacionService.responderEvaluacion(id, request, authentication));
+    }
+}

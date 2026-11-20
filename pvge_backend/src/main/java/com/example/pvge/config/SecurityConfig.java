@@ -1,0 +1,86 @@
+package com.example.pvge.config;
+
+import java.util.List;
+
+import org.springframework.boot.micrometer.observation.autoconfigure.ObservationProperties.Http;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import com.example.pvge.jwt.JWTAuthFilter;
+
+import lombok.RequiredArgsConstructor;
+
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+    private final AuthenticationProvider authenticationProvider;
+    private final JWTAuthFilter jwtAuthFilter;
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:8081"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+        return http.csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .authorizeHttpRequests(
+                        authRequest -> authRequest
+                                .requestMatchers(HttpMethod.POST, "/api/estudiantes").permitAll()
+                                .requestMatchers("/api/auth/**").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/instructores").hasAuthority("ADMIN")
+                                .requestMatchers(HttpMethod.POST, "/api/cursos").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.POST, "/api/contenidos").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.PUT, "/api/contenidos/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.DELETE, "/api/contenidos/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.POST, "/api/tareas").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.PUT, "/api/tareas/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.DELETE, "/api/tareas/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.PUT, "/api/tareas/entregas/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.GET, "/api/tareas/curso/*/entregas").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.GET, "/api/tareas/*/mis-entregas").hasAuthority("ESTUDIANTE")
+                                .requestMatchers(HttpMethod.GET, "/api/tareas/mis-calificaciones").hasAuthority("ESTUDIANTE")
+                                .requestMatchers(HttpMethod.POST, "/api/tareas/*/entregas").hasAuthority("ESTUDIANTE")
+                                .requestMatchers(HttpMethod.POST, "/api/evaluaciones").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.PUT, "/api/evaluaciones/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.DELETE, "/api/evaluaciones/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.GET, "/api/evaluaciones/*/edicion").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.POST, "/api/evaluaciones/*/responder").hasAuthority("ESTUDIANTE")
+                                .requestMatchers(HttpMethod.GET, "/api/evaluaciones/**")
+                                .hasAnyAuthority("INSTRUCTOR", "ESTUDIANTE")
+                                .requestMatchers(HttpMethod.GET, "/api/progreso/instructor/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.PUT, "/api/cursos/**").hasAuthority("INSTRUCTOR")
+                                .requestMatchers(HttpMethod.DELETE, "/api/cursos/inscribir/**").hasAuthority("ESTUDIANTE")
+                                .requestMatchers(HttpMethod.POST, "/api/recursos").hasAuthority("INSTRUCTOR")
+                                .requestMatchers("/api/certificados/**").hasAuthority("ESTUDIANTE")
+                                .requestMatchers("/api/calificaciones/cursos/**").hasAuthority("ESTUDIANTE")
+                                .requestMatchers("/api/notificaciones/**").hasAuthority("ESTUDIANTE")
+                                .requestMatchers("/api/admin/**")
+                                .hasAuthority("ADMIN").anyRequest().authenticated())
+                .sessionManagement(
+                        sessionManager -> sessionManager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
+    }
+}
